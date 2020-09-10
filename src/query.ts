@@ -1,16 +1,22 @@
-'use strict';
+import Promise from 'bluebird';
+import { parseArgs, shuffle } from './util';
 
-const Promise = require('bluebird');
-const { parseArgs, shuffle } = require('./util');
+type IterateFn<T, TResult = void> =
+  (item: T, index?: number) => TResult;
 
-class Query {
+type ReduceFn<T> =
+  (prev: T, item: T, index?: number) => T;
+
+export default class Query<T> {
+
+  private data: T[];
+  private length: number;
 
   /**
    * Query constructor.
    *
-   * @param {Array} data
    */
-  constructor(data) {
+  constructor(data: T[]) {
     this.data = data;
     this.length = data.length;
   }
@@ -18,18 +24,20 @@ class Query {
   /**
    * Returns the number of elements.
    *
-   * @return Number
    */
-  count() {
+  count(): number {
     return this.length;
+  }
+
+  size(): number {
+    return this.count();
   }
 
   /**
    * Iterates over all documents.
    *
-   * @param {Function} iterator
    */
-  forEach(iterator) {
+  forEach(iterator: IterateFn<T>): void {
     const { data, length } = this;
 
     for (let i = 0; i < length; i++) {
@@ -37,12 +45,15 @@ class Query {
     }
   }
 
+  each(iterator: IterateFn<T>): void {
+    this.forEach(iterator);
+  }
+
   /**
    * Returns an array containing all documents.
    *
-   * @return {Array}
    */
-  toArray() {
+  toArray(): T[] {
     return this.data;
   }
 
@@ -50,10 +61,8 @@ class Query {
    * Returns the document at the specified index. `num` can be a positive or
    * negative number.
    *
-   * @param {Number} i
-   * @return {Document|Object}
    */
-  eq(i) {
+  eq(i: number): T {
     const index = i < 0 ? this.length + i : i;
     return this.data[index];
   }
@@ -61,68 +70,61 @@ class Query {
   /**
    * Returns the first document.
    *
-   * @return {Document|Object}
    */
-  first() {
+  first(): T {
     return this.eq(0);
   }
 
   /**
    * Returns the last document.
    *
-   * @return {Document|Object}
    */
-  last() {
+  last(): T {
     return this.eq(-1);
   }
 
   /**
    * Returns the specified range of documents.
    *
-   * @param {Number} start
-   * @param {Number} [end]
-   * @return {Query}
    */
-  slice(start, end) {
-    return new this.constructor(this.data.slice(start, end));
+  slice(start?: number, end?: number): Query<T> {
+    return new Query(this.data.slice(start, end));
   }
 
   /**
    * Limits the number of documents returned.
    *
-   * @param {Number} i
-   * @return {Query}
    */
-  limit(i) {
+  limit(i: number): Query<T> {
     return this.slice(0, i);
   }
 
   /**
    * Specifies the number of items to skip.
    *
-   * @param {Number} i
-   * @return {Query}
    */
-  skip(i) {
+  skip(i: number): Query<T> {
     return this.slice(i);
   }
 
   /**
    * Returns documents in a reversed order.
    *
-   * @return {Query}
    */
-  reverse() {
-    return new this.constructor(this.data.slice().reverse());
+  reverse(): Query<T> {
+    return new Query(this.data.slice().reverse());
   }
 
   /**
    * Returns documents in random order.
    *
-   * @return {Query}
    */
-  shuffle() {
-    return new this.constructor(shuffle(this.data));
+  shuffle(): Query<T> {
+    return new Query(shuffle(this.data));
+  }
+
+  random(): Query<T> {
+    return this.shuffle();
   }
 
   /**
@@ -188,26 +190,21 @@ class Query {
    * If the `order` equals to `-1`, `desc` or `descending`, the data will be
    * returned in reversed order.
    *
-   * @param {String|Object} orderby
-   * @param {String|Number} [order]
-   * @return {Query}
    */
-  sort(orderby, order) {
-    const sort = parseArgs(orderby, order);
+  sort(orderBy: string | Any, order: string | number): Query<T> {
+    const sort = parseArgs(orderBy, order);
     const fn = this._schema._execSort(sort);
 
-    return new this.constructor(this.data.slice().sort(fn));
+    return new Query(this.data.slice().sort(fn));
   }
 
   /**
    * Creates an array of values by iterating each element in the collection.
    *
-   * @param {Function} iterator
-   * @return {Array}
    */
-  map(iterator) {
+  map<TResult>(iterator: IterateFn<T, TResult>): TResult[] {
     const { data, length } = this;
-    const result = new Array(length);
+    const result = new Array<TResult>(length);
 
     for (let i = 0; i < length; i++) {
       result[i] = iterator(data[i], i);
@@ -224,7 +221,7 @@ class Query {
    * @param {*} [initial] By default, the initial value is the first document.
    * @return {*}
    */
-  reduce(iterator, initial) {
+  reduce(iterator: ReduceFn<T>, initial?: T): T {
     const { data, length } = this;
     let result, i;
 
@@ -247,11 +244,8 @@ class Query {
    * Reduces a collection to a value which is the accumulated result of iterating
    * each element in the collection from right to left.
    *
-   * @param {Function} iterator
-   * @param {*} [initial] By default, the initial value is the last document.
-   * @return {*}
    */
-  reduceRight(iterator, initial) {
+  reduceRight(iterator: ReduceFn<T>, initial?: T): T {
     const { data, length } = this;
     let result, i;
 
@@ -274,10 +268,8 @@ class Query {
    * Creates a new array with all documents that pass the test implemented by the
    * provided function.
    *
-   * @param {Function} iterator
-   * @return {Query}
    */
-  filter(iterator) {
+  filter(iterator: IterateFn<T, boolean>): Query<T> {
     const { data, length } = this;
     const arr = [];
 
@@ -286,17 +278,15 @@ class Query {
       if (iterator(item, i)) arr.push(item);
     }
 
-    return new this.constructor(arr);
+    return new Query(arr);
   }
 
   /**
    * Tests whether all documents pass the test implemented by the provided
    * function.
    *
-   * @param {Function} iterator
-   * @return {Boolean}
    */
-  every(iterator) {
+  every(iterator: IterateFn<T, boolean>): boolean {
     const { data, length } = this;
 
     for (let i = 0; i < length; i++) {
@@ -310,10 +300,8 @@ class Query {
    * Tests whether some documents pass the test implemented by the provided
    * function.
    *
-   * @param {Function} iterator
-   * @return {Boolean}
    */
-  some(iterator) {
+  some(iterator: IterateFn<T, boolean>): boolean {
     const { data, length } = this;
 
     for (let i = 0; i < length; i++) {
@@ -380,11 +368,3 @@ class Query {
     return this;
   }
 }
-
-Query.prototype.size = Query.prototype.count;
-
-Query.prototype.each = Query.prototype.forEach;
-
-Query.prototype.random = Query.prototype.shuffle;
-
-module.exports = Query;

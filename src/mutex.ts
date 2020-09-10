@@ -1,12 +1,15 @@
-'use strict';
+type Fn = () => void;
 
-class Mutex {
+export default class Mutex {
+  private _locked: boolean;
+  private _queue: Array<Fn>;
+
   constructor() {
     this._locked = false;
     this._queue = [];
   }
 
-  lock(fn) {
+  lock(fn: Fn): void {
     if (this._locked) {
       this._queue.push(fn);
       return;
@@ -16,7 +19,7 @@ class Mutex {
     fn();
   }
 
-  unlock() {
+  unlock(): void {
     if (!this._locked) return;
 
     const next = this._queue.shift();
@@ -28,5 +31,3 @@ class Mutex {
     }
   }
 }
-
-module.exports = Mutex;

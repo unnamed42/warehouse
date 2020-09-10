@@ -1,12 +1,15 @@
-'use strict';
+import SchemaType, { SchemaOptions } from '../schematype';
+import type { ValueType } from './';
+import ValidationError from '../error/validation';
 
-const SchemaType = require('../schematype');
-const ValidationError = require('../error/validation');
+interface BufferOptions extends SchemaOptions<Buffer> {
+  encoding?: BufferEncoding;
+}
 
 /**
  * Boolean schema type.
  */
-class SchemaTypeBuffer extends SchemaType {
+export default class SchemaTypeBuffer extends SchemaType<Buffer, BufferOptions> {
 
   /**
    * @param {string} name
@@ -15,7 +18,7 @@ class SchemaTypeBuffer extends SchemaType {
    *   @param {boolean|Function} [options.default]
    *   @param {string} [options.encoding=hex]
    */
-  constructor(name, options) {
+  constructor(name: string, options: BufferOptions) {
     super(name, Object.assign({
       encoding: 'hex'
     }, options));
@@ -24,11 +27,8 @@ class SchemaTypeBuffer extends SchemaType {
   /**
    * Casts data.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {Buffer}
    */
-  cast(value_, data) {
+  cast(value_: ValueType | null, data?: unknown): Buffer | null | undefined {
     const value = super.cast(value_, data);
 
     if (value == null || Buffer.isBuffer(value)) return value;
@@ -39,11 +39,8 @@ class SchemaTypeBuffer extends SchemaType {
   /**
    * Validates data.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {Buffer}
    */
-  validate(value_, data) {
+  validate(value_: ValueType, data?: unknown): Buffer {
     const value = super.validate(value_, data);
 
     if (!Buffer.isBuffer(value)) {
@@ -56,13 +53,10 @@ class SchemaTypeBuffer extends SchemaType {
   /**
    * Compares between two buffers.
    *
-   * @param {Buffer} a
-   * @param {Buffer} b
-   * @return {Number}
    */
-  compare(a, b) {
+  compare(a: Buffer, b: Buffer): Order {
     if (Buffer.isBuffer(a)) {
-      return Buffer.isBuffer(b) ? a.compare(b) : 1;
+      return Buffer.isBuffer(b) ? a.compare(b) as Order : 1;
     }
 
     return Buffer.isBuffer(b) ? -1 : 0;
@@ -75,30 +69,23 @@ class SchemaTypeBuffer extends SchemaType {
    * @param {Object} data
    * @return {Boolean}
    */
-  parse(value, data) {
+  parse(value: ValueType, _data?: unknown): boolean {
     return value ? Buffer.from(value, this.options.encoding) : value;
   }
 
   /**
    * Transforms data into number to compress the size of database files.
    *
-   * @param {Buffer} value
-   * @param {Object} data
-   * @return {Number}
    */
-  value(value, data) {
+  value(value: Buffer, _data?: unknown): number {
     return Buffer.isBuffer(value) ? value.toString(this.options.encoding) : value;
   }
 
   /**
    * Checks the equality of data.
    *
-   * @param {Buffer} value
-   * @param {Buffer} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  match(value, query, data) {
+  match(value: Buffer, query: Buffer, _data?: unknown): boolean {
     if (Buffer.isBuffer(value) && Buffer.isBuffer(query)) {
       return value.equals(query);
     }
@@ -106,5 +93,3 @@ class SchemaTypeBuffer extends SchemaType {
     return value === query;
   }
 }
-
-module.exports = SchemaTypeBuffer;

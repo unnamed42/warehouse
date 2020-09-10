@@ -1,29 +1,32 @@
-'use strict';
+import { EventEmitter } from 'events';
+import rfdc from 'rfdc';
+import Promise from 'bluebird';
+import { parseArgs, getProp, setGetter, shuffle } from './util';
+import Document from './document';
+import Query from './query';
+import Schema from './schema';
+import * as Types from './types';
+import WarehouseError from './error';
+import PopulationError from './error/population';
+import Mutex from './mutex';
 
-const { EventEmitter } = require('events');
-const cloneDeep = require('rfdc')();
-const Promise = require('bluebird');
-const { parseArgs, getProp, setGetter, shuffle } = require('./util');
-const Document = require('./document');
-const Query = require('./query');
-const Schema = require('./schema');
-const Types = require('./types');
-const WarehouseError = require('./error');
-const PopulationError = require('./error/population');
-const Mutex = require('./mutex');
+const cloneDeep = rfdc();
 
-class Model extends EventEmitter {
+export default class Model extends EventEmitter {
+
+  private name: string;
+  private schema: Schema;
+  private length: number;
+  private _mutex: Mutex;
 
   /**
    * Model constructor.
    *
-   * @param {string} name Model name
-   * @param {Schema|object} [schema] Schema
    */
-  constructor(name, schema_) {
+  constructor(name: string, schema_: Schema | Any) {
     super();
 
-    let schema;
+    let schema: Schema;
 
     // Define schema
     if (schema_ instanceof Schema) {

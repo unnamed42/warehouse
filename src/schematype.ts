@@ -1,7 +1,15 @@
-'use strict';
+import { setProp } from './util';
+import ValidationError from './error/validation';
+import { ValueType } from './types';
 
-const { setProp } = require('./util');
-const ValidationError = require('./error/validation');
+export interface SchemaOptions<TData> {
+  required: boolean;
+  default: TData | (() => TData);
+}
+
+// workaround of type system
+const isFunction = <T>(fn: T | (() => T)): fn is (() => T) =>
+  typeof fn === 'function';
 
 /**
  * This is the basic schema type.
@@ -46,17 +54,21 @@ const ValidationError = require('./error/validation');
  *
  * The return value will replace the original data.
  */
-class SchemaType {
+export default class SchemaType<
+  TValue extends ValueType = ValueType,
+  TOption extends SchemaOptions<TValue> = SchemaOptions<TValue>,
+  Query extends ValueType = any
+> {
+
+  protected name: string;
+  protected options: TOption;
+  protected default: () => TValue;
 
   /**
    * SchemaType constructor.
    *
-   * @param {String} name
-   * @param {Object} [options]
-   *   @param {Boolean} [options.required=false]
-   *   @param {*} [options.default]
    */
-  constructor(name, options) {
+  constructor(name: string, options?: TOption) {
     this.name = name || '';
 
     this.options = Object.assign({
@@ -65,7 +77,7 @@ class SchemaType {
 
     const default_ = this.options.default;
 
-    if (typeof default_ === 'function') {
+    if (isFunction(default_)) {
       this.default = default_;
     } else {
       this.default = () => default_;
@@ -76,11 +88,8 @@ class SchemaType {
    * Casts data. This function is used by getters to cast an object to document
    * instances. If the value is null, the default value will be returned.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {*}
    */
-  cast(value, data) {
+  cast(value?: ValueType | null, _data?: unknown): ValueType | null {
     if (value == null) {
       return this.default();
     }
@@ -91,11 +100,8 @@ class SchemaType {
   /**
    * Validates data. This function is used by setters.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {*|Error}
    */
-  validate(value, data) {
+  validate(value: ValueType | null, _data?: unknown): ValueType | null {
     if (this.options.required && value == null) {
       throw new ValidationError(`\`${this.name}\` is required!`);
     }
@@ -106,11 +112,8 @@ class SchemaType {
   /**
    * Compares data. This function is used when sorting.
    *
-   * @param {*} a
-   * @param {*} b
-   * @return {Number}
    */
-  compare(a, b) {
+  compare(a: TValue, b: TValue): Order {
     if (a > b) {
       return 1;
     } else if (a < b) {
@@ -123,154 +126,118 @@ class SchemaType {
   /**
    * Parses data. This function is used when restoring data from database files.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {*}
    */
-  parse(value, data) {
-    return value;
+  parse(value: ValueType, _data?: unknown): TValue {
+    return value as TValue;
   }
 
   /**
    * Transforms value. This function is used when saving data to database files.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {*}
    */
-  value(value, data) {
+  value(value: ValueType, _data?: unknown): ValueType {
     return value;
   }
 
   /**
    * Checks the equality of data.
    *
-   * @param {*} value
-   * @param {*} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  match(value, query, data) {
+  match(value: ValueType, query: Query, _data?: unknown): boolean {
     return value === query;
   }
 
   /**
    * Checks the existance of data.
    *
-   * @param {*} value
-   * @param {*} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$exist(value, query, data) {
+  q$exist(value: ValueType | null, query: Query, _data?: unknown): boolean {
     return (value != null) === query;
+  }
+
+  q$exists(value: ValueType, query: Query, _data?: unknown): boolean {
+    return this.q$exist(value, query, _data);
   }
 
   /**
    * Checks the equality of data. Returns true if the value doesn't match.
    *
-   * @param {*} value
-   * @param {*} query
-   * @param {Object} data
-   * @return {boolean}
    */
-  q$ne(value, query, data) {
+  q$ne(value: ValueType, query: Query, data: unknown): boolean {
     return !this.match(value, query, data);
   }
 
   /**
    * Checks whether `value` is less than (i.e. <) the `query`.
    *
-   * @param {*} value
-   * @param {*} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$lt(value, query, data) {
+  q$lt(value: ValueType, query: Query, _data?: unknown): boolean {
     return value < query;
   }
 
   /**
    * Checks whether `value` is less than or equal to (i.e. <=) the `query`.
    *
-   * @param {*} value
-   * @param {*} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$lte(value, query, data) {
+  q$lte(value: ValueType, query: Query, _data?: unknown): boolean {
     return value <= query;
+  }
+
+  q$max(value: ValueType, query: Query, _data?: unknown): boolean {
+    return this.q$lte(value, query, _data);
   }
 
   /**
    * Checks whether `value` is greater than (i.e. >) the `query`.
    *
-   * @param {*} value
-   * @param {*} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$gt(value, query, data) {
+  q$gt(value: ValueType, query: Query, _data?: unknown): boolean {
     return value > query;
   }
 
   /**
    * Checks whether `value` is greater than or equal to (i.e. >=) the `query`.
    *
-   * @param {*} value
-   * @param {*} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$gte(value, query, data) {
+  q$gte(value: ValueType, query: Query, _data?: unknown): boolean {
     return value >= query;
+  }
+
+  q$min(value: ValueType, query: Query, _data?: unknown): boolean {
+    return this.q$gte(value, query, _data);
   }
 
   /**
    * Checks whether `value` is equal to one of elements in `query`.
    *
-   * @param {*} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$in(value, query, data) {
+  q$in(value: ValueType, query: Query, _data?: unknown): boolean {
     return query.includes(value);
   }
 
   /**
    * Checks whether `value` is not equal to any elements in `query`.
    *
-   * @param {*} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$nin(value, query, data) {
+  q$nin(value: ValueType, query: Query, _data?: unknown): boolean {
     return !query.includes(value);
   }
 
   /**
    * Sets the value.
    *
-   * @param {*} value
-   * @param {*} update
-   * @param {Object} data
-   * @return {*}
    */
-  u$set(value, update, data) {
+  u$set(_value: ValueType, update: TValue, _data?: unknown): TValue {
     return update;
   }
 
   /**
    * Unsets the value.
    *
-   * @param {*} value
-   * @param {*} update
-   * @param {Object} data
-   * @return {*}
    */
-  u$unset(value, update, data) { return update ? undefined : value; }
+  u$unset(value: ValueType, update: TValue, _data?: unknown): TValue | undefined {
+    return update ? undefined : value as TValue;
+  }
 
   /**
    * Renames a field.
@@ -280,16 +247,8 @@ class SchemaType {
    * @param {Object} data
    * @return {*}
    */
-  u$rename(value, update, data) {
-    if (value !== undefined) setProp(data, update, value);
+  u$rename(value: ValueType | undefined, update: TValue, data: Any): void {
+    if (value !== undefined) setProp(data, update as string, value);
     return undefined;
   }
 }
-
-SchemaType.prototype.q$exists = SchemaType.prototype.q$exist;
-
-SchemaType.prototype.q$max = SchemaType.prototype.q$lte;
-
-SchemaType.prototype.q$min = SchemaType.prototype.q$gte;
-
-module.exports = SchemaType;

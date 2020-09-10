@@ -1,23 +1,25 @@
-'use strict';
-
-const SchemaType = require('./schematype');
-const Types = require('./types');
-const Promise = require('bluebird');
-const { getProp, setProp, delProp } = require('./util');
-const PopulationError = require('./error/population');
-const { isPlainObject } = require('is-plain-object');
+import SchemaType from './schematype';
+import * as Types from './types';
+import Promise from 'bluebird';
+import { getProp, setProp, delProp } from './util';
+import PopulationError from './error/population';
+import { isPlainObject } from 'is-plain-object';
 
 /**
  * @callback queryFilterCallback
  * @param {*} data
  * @return {boolean}
  */
+export type QueryFilterCallback<TData> =
+  (data: TData) => boolean;
 
 /**
  * @callback queryCallback
  * @param {*} data
  * @return {void}
  */
+export type QueryCallback<TData> =
+  (data: TData) => void;
 
 /**
  * @callback queryParseCallback
@@ -25,12 +27,16 @@ const { isPlainObject } = require('is-plain-object');
  * @param {*} b
  * @returns {*}
  */
+export type QueryParseCallback =
+  (a: Any, b: Any) => Any;
 
 /**
  * @typedef PopulateResult
  * @property {string} path
  * @property {*} model
  */
+export type PopulateResult<TModel> =
+  (path: string) => TModel;
 
 const builtinTypes = new Set(['String', 'Number', 'Boolean', 'Array', 'Object', 'Date', 'Buffer']);
 
@@ -45,13 +51,13 @@ const getSchemaType = (name, options) => {
   return new Type(name, options);
 };
 
-const checkHookType = type => {
+const checkHookType = (type: string) => {
   if (type !== 'save' && type !== 'remove') {
     throw new TypeError('Hook type must be `save` or `remove`!');
   }
 };
 
-const hookWrapper = fn => {
+const hookWrapper = (fn: Function) => {
   if (fn.length > 1) {
     return Promise.promisify(fn);
   }
@@ -62,7 +68,7 @@ const hookWrapper = fn => {
 /**
  * @param {Function[]} stack
  */
-const execSortStack = stack => {
+const execSortStack = <Fn extends (() => void)>(stack: Fn[]) => {
   const len = stack.length;
 
   return (a, b) => {
@@ -112,7 +118,7 @@ class UpdateParser {
    * @param {queryCallback[]} [stack]
    * @private
    */
-  parseUpdate(updates, prefix = '', stack = []) {
+  private parseUpdate(updates, prefix = '', stack = []) {
     const { paths } = this;
     const { updateStackOperator } = UpdateParser;
     const keys = Object.keys(updates);
@@ -169,7 +175,7 @@ class QueryParser {
    * @param {*} query
    * @return {queryFilterCallback}
    */
-  queryStackNormal(name, query) {
+  queryStackNormal(name: string, query): QueryFilterCallback {
     const path = this.paths[name] || new SchemaType(name);
 
     return data => path.match(getProp(data, name), query, data);
@@ -383,7 +389,7 @@ class QueryParser {
   }
 }
 
-class Schema {
+export default class Schema {
 
   /**
    * Schema constructor.
@@ -791,5 +797,3 @@ class Schema {
 
 Schema.prototype.Types = Types;
 Schema.Types = Schema.prototype.Types;
-
-module.exports = Schema;

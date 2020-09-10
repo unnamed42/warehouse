@@ -1,15 +1,18 @@
-'use strict';
+// const cloneDeep = require('rfdc')();
+import rfdc from 'rfdc';
 
-const cloneDeep = require('rfdc')();
+const cloneDeep = rfdc();
 
-class Document {
+const isGetter = <T>(obj: T, key: string): boolean =>
+  Object.getOwnPropertyDescriptor(obj, key)?.get === undefined;
+
+export default class Document<TData> {
 
   /**
    * Document constructor.
    *
-   * @param {object} data
    */
-  constructor(data) {
+  constructor(data: TData) {
     if (data) {
       Object.assign(this, data);
     }
@@ -60,28 +63,19 @@ class Document {
   /**
    * Returns a plain JavaScript object.
    *
-   * @return {object}
    */
-  toObject() {
-    const keys = Object.keys(this);
-    const obj = {};
-
-    for (let i = 0, len = keys.length; i < len; i++) {
-      const key = keys[i];
-      // Don't deep clone getters in order to avoid "Maximum call stack size
-      // exceeded" error
-      obj[key] = isGetter(this, key) ? this[key] : cloneDeep(this[key]);
-    }
-
-    return obj;
+  toObject(): Any {
+    return Object.entries(this).reduce((prev, [key, value]) => {
+      prev[key] = isGetter(this, key) ? value : cloneDeep(value);
+      return prev;
+    }, {} as Any);
   }
 
   /**
    * Returns a string representing the document.
    *
-   * @return {String}
    */
-  toString() {
+  toString(): string {
     return JSON.stringify(this);
   }
 
@@ -91,14 +85,8 @@ class Document {
    * @param {String|Object} expr
    * @return {Document}
    */
-  populate(expr) {
+  populate(expr: string | Any): Document {
     const stack = this._schema._parsePopulate(expr);
     return this._model._populate(this, stack);
   }
 }
-
-function isGetter(obj, key) {
-  return Object.getOwnPropertyDescriptor(obj, key).get;
-}
-
-module.exports = Document;

@@ -1,15 +1,18 @@
-'use strict';
-
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const JSONStream = require('JSONStream');
-const Promise = require('bluebird');
-const fs = require('graceful-fs');
-const Model = require('./model');
-const Schema = require('./schema');
-const SchemaType = require('./schematype');
-const WarehouseError = require('./error');
-const pkg = require('../package.json');
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import Promise from 'bluebird';
+import fs from 'graceful-fs';
+import * as stream from 'stream';
+import Model from './model';
+import Schema from './schema';
+import SchemaType from './schematype';
+import WarehouseError from './error';
+
+const pkg = require('../package.json') as Any;
 const { open } = fs.promises;
-const pipeline = Promise.promisify(require('stream').pipeline);
+const pipeline = Promise.promisify(stream.pipeline);
 
 let _writev;
 
@@ -58,7 +61,9 @@ async function exportAsync(database, path) {
   }
 }
 
-class Database {
+export default class Database {
+
+  static version = pkg.version as string;
 
   /**
    * Database constructor.
@@ -178,5 +183,3 @@ Database.Schema = Database.prototype.Schema;
 Database.prototype.SchemaType = SchemaType;
 Database.SchemaType = Database.prototype.SchemaType;
 Database.version = pkg.version;
-
-module.exports = Database;

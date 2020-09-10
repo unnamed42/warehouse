@@ -1,21 +1,17 @@
-'use strict';
-
-const SchemaType = require('../schematype');
-const ValidationError = require('../error/validation');
+import SchemaType from '../schematype';
+import type { ValueType, SchemaNode } from './';
+import ValidationError from '../error/validation';
 
 /**
  * String schema type.
  */
-class SchemaTypeString extends SchemaType {
+class SchemaTypeString extends SchemaType<string> {
 
   /**
    * Casts a string.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {String}
    */
-  cast(value_, data) {
+  cast(value_: ValueType | null, data?: unknown): string | undefined {
     const value = super.cast(value_, data);
 
     if (value == null || typeof value === 'string') return value;

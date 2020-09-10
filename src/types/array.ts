@@ -1,24 +1,21 @@
-'use strict';
-
-const SchemaType = require('../schematype');
-const ValidationError = require('../error/validation');
+import SchemaType, { SchemaOptions } from '../schematype';
+import ValidationError from '../error/validation';
 
 const { isArray } = Array;
+
+interface ArrayOptions<T> extends SchemaOptions<T> {
+  required: false;
+  child?: SchemaType<unknown>;
+}
 
 /**
  * Array schema type.
  */
-class SchemaTypeArray extends SchemaType {
+class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> {
 
-  /**
-   *
-   * @param {String} name
-   * @param {Object} [options]
-   *   @param {Boolean} [options.required=false]
-   *   @param {Array|Function} [options.default=[]]
-   *   @param {SchemaType} [options.child]
-   */
-  constructor(name, options) {
+  private child: SchemaType<unknown>;
+
+  constructor(name: string, options?: ArrayOptions<TElem[]>) {
     super(name, Object.assign({
       default: []
     }, options));
@@ -29,11 +26,8 @@ class SchemaTypeArray extends SchemaType {
   /**
    * Casts an array and its child elements.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {Array}
    */
-  cast(value_, data) {
+  cast(value_: TElem[], data: Any): TElem[] {
     let value = super.cast(value_, data);
     if (value == null) return value;
 
@@ -43,7 +37,8 @@ class SchemaTypeArray extends SchemaType {
     const child = this.child;
 
     for (let i = 0, len = value.length; i < len; i++) {
-      value[i] = child.cast(value[i], data);
+      // TODO: more precise type
+      value[i] = child.cast(value[i], data) as TElem;
     }
 
     return value;
