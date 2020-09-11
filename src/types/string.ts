@@ -1,34 +1,39 @@
-import SchemaType from '../schematype';
-import type { ValueType, SchemaNode } from './';
+import SchemaType, { QueryType } from '../schematype';
+import type { ValueType } from './';
 import ValidationError from '../error/validation';
+
+const isRegexp = (expr: QueryType): expr is RegExp =>
+  // eslint-disable-next-line no-extra-parens
+  typeof(expr as RegExp).test === 'function';
 
 /**
  * String schema type.
  */
-class SchemaTypeString extends SchemaType<string> {
+export default class SchemaTypeString extends SchemaType {
 
   /**
    * Casts a string.
    *
    */
-  cast(value_: ValueType | null, data?: unknown): string | undefined {
+  cast(value_: ValueType | null, data?: unknown): string | null {
     const value = super.cast(value_, data);
 
-    if (value == null || typeof value === 'string') return value;
+    if (value == null) return null;
+    if (typeof value === 'string') return value;
     if (typeof value.toString === 'function') return value.toString();
+
+    throw new ValidationError(`\`${value} cannot be interpreted as string\``);
   }
 
   /**
    * Validates a string.
-   *
-   * @param {*} value
-   * @param {Object} data
-   * @return {String|Error}
    */
-  validate(value_, data) {
+  validate(value_: ValueType, data?: unknown): string | null {
     const value = super.validate(value_, data);
 
-    if (value !== undefined && typeof value !== 'string') {
+    if (value == null) return null;
+
+    if (typeof value !== 'string') {
       throw new ValidationError(`\`${value}\` is not a string!`);
     }
 
@@ -38,18 +43,18 @@ class SchemaTypeString extends SchemaType<string> {
   /**
    * Checks the equality of data.
    *
-   * @param {*} value
-   * @param {String|RegExp} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  match(value, query, data) {
+  match(value: ValueType, query: ValueType, _?: unknown): boolean;
+  match(value: string | null, query: RegExp, _?:unknown): boolean;
+  match(value: ValueType, query: QueryType, _data?: unknown): boolean;
+
+  match(value: ValueType, query: QueryType, _data?: unknown): boolean {
     if (!value || !query) {
       return value === query;
     }
 
-    if (typeof query.test === 'function') {
-      return query.test(value);
+    if (isRegexp(query)) {
+      return query.test(value as string);
     }
 
     return value === query;
@@ -58,12 +63,8 @@ class SchemaTypeString extends SchemaType<string> {
   /**
    * Checks whether a string is equal to one of elements in `query`.
    *
-   * @param {String} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$in(value, query, data) {
+  q$in(value: string | null, query: QueryType[], data?: unknown): boolean {
     for (let i = 0, len = query.length; i < len; i++) {
       if (this.match(value, query[i], data)) return true;
     }
@@ -74,26 +75,16 @@ class SchemaTypeString extends SchemaType<string> {
   /**
    * Checks whether a string is not equal to any elements in `query`.
    *
-   * @param {String} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$nin(value, query, data) {
+  q$nin(value: string | null, query: QueryType[], data?: unknown): boolean {
     return !this.q$in(value, query, data);
   }
 
   /**
    * Checks length of a string.
    *
-   * @param {String} value
-   * @param {Number} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$length(value, query, data) {
+  q$length(value: string | null, query: number, _data?: unknown): boolean {
     return (value ? value.length : 0) === query;
   }
 }
-
-module.exports = SchemaTypeString;

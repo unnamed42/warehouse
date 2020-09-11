@@ -1,3 +1,9 @@
 type Any<T = unknown> = Record<string, T>;
 
-type Order = 1 | -1 | 0;
+interface RecursiveImpl<T> {
+  [key: string]: T | RecursiveImpl<T>;
+}
+
+type Recursive<T extends Any> = T | RecursiveImpl<T>;
+
+type ValueOf<T> = T[keyof T];

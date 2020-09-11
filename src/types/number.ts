@@ -5,7 +5,7 @@ import ValidationError from '../error/validation';
 /**
  * Number schema type.
  */
-export default class SchemaTypeNumber extends SchemaType<number> {
+export default class SchemaTypeNumber extends SchemaType {
 
   /**
    * Casts a number.
@@ -14,7 +14,8 @@ export default class SchemaTypeNumber extends SchemaType<number> {
   cast(value_: ValueType | null, data?: unknown): number | null {
     const value = super.cast(value_, data);
 
-    if (value == null || typeof value === 'number') return value;
+    if (value == null) return null;
+    if (typeof value === 'number') return value;
 
     return +value;
   }

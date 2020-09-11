@@ -1,20 +1,25 @@
-'use strict';
+import SchemaType from '../schematype';
+import type { ValueType } from './';
+import { setGetter } from '../util';
 
-const SchemaType = require('../schematype');
-const { setGetter } = require('../util');
+type PropGetter = (this: ValueType) => ValueType;
+// eslint-disable-next-line no-use-before-define
+type PropSetter = (this: unknown, value: ValueType) => void;
 
 /**
  * Virtual schema type.
  */
-class SchemaTypeVirtual extends SchemaType {
+export default class SchemaTypeVirtual extends SchemaType {
+
+  private getter: PropGetter = () => null;
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  private setter: PropSetter = () => { };
 
   /**
    * Add a getter.
    *
-   * @param {Function} fn
-   * @chainable
    */
-  get(fn) {
+  get(fn: PropGetter): this {
     if (typeof fn !== 'function') {
       throw new TypeError('Getter must be a function!');
     }
@@ -27,10 +32,8 @@ class SchemaTypeVirtual extends SchemaType {
   /**
    * Add a setter.
    *
-   * @param {Function} fn
-   * @chainable
    */
-  set(fn) {
+  set(fn: PropSetter): this {
     if (typeof fn !== 'function') {
       throw new TypeError('Setter must be a function!');
     }
@@ -43,16 +46,13 @@ class SchemaTypeVirtual extends SchemaType {
   /**
    * Applies getters.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {*}
    */
-  cast(value, data) {
+  cast(value: ValueType, data: Any): undefined {
     if (typeof this.getter !== 'function') return;
 
     const getter = this.getter;
     let hasCache = false;
-    let cache;
+    let cache: ValueType;
 
     setGetter(data, this.name, () => {
       if (!hasCache) {
@@ -67,14 +67,11 @@ class SchemaTypeVirtual extends SchemaType {
   /**
    * Applies setters.
    *
-   * @param {*} value
-   * @param {Object} data
    */
-  validate(value, data) {
+  validate(value: ValueType, data: unknown): undefined {
     if (typeof this.setter === 'function') {
       this.setter.call(data, value);
     }
+    return undefined;
   }
 }
-
-module.exports = SchemaTypeVirtual;

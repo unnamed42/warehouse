@@ -25,7 +25,10 @@ export function getProp<
   TKey extends keyof T
 >(obj: T, key: TKey): T[TKey];
 
-export function getProp<T extends Any>(obj: T, key: string): unknown {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getProp(obj: any, key: string): unknown;
+
+export function getProp<T extends never>(obj: T, key: string): unknown {
   if (typeof obj !== 'object') throw new TypeError('obj must be an object!');
   if (!key) throw new TypeError('key is required!');
 
@@ -50,7 +53,10 @@ export function setProp<
   TValue extends T[TKey]
 >(obj: T, key: TKey, value: TValue): void;
 
-export function setProp<T extends Any>(obj: T, key: string, value: unknown): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setProp(obj: any, key: string, value: unknown): void;
+
+export function setProp<T extends never>(obj: T, key: string, value: unknown): void {
   if (typeof obj !== 'object') throw new TypeError('obj must be an object!');
   if (!key) throw new TypeError('key is required!');
 
@@ -80,9 +86,11 @@ export function setProp<T extends Any>(obj: T, key: string, value: unknown): voi
 export function delProp<
   T extends Any,
   TKey extends keyof T
->(obj: T, key: TKey): Omit<T, TKey>;
+>(obj: T, key: TKey): void;
 
-export function delProp<T extends Any>(obj: T, key: string): unknown {
+export function delProp(obj: unknown, key: string): void;
+
+export function delProp<T extends Any>(obj: T, key: string): void {
   if (typeof obj !== 'object') throw new TypeError('obj must be an object!');
   if (!key) throw new TypeError('key is required!');
 
@@ -115,6 +123,8 @@ export function setGetter<
   TKey extends keyof T
 >(obj: T, key: TKey, fn: (this: T) => T[TKey]): void;
 
+export function setGetter<T extends Any>(obj: T, key: string, fn: (this: T) => unknown): void;
+
 export function setGetter<T extends Any>(
   obj: T,
   key: string,
@@ -142,7 +152,7 @@ export function setGetter<T extends Any>(
   }
 
   Object.defineProperty(cursor, lastKey, fn);
-};
+}
 
 export const arr2obj = <T extends string | number | symbol, TValue>(arr: T[], value: TValue): Record<T, TValue> => {
   // if (!Array.isArray(arr)) throw new TypeError('arr must be an array!');

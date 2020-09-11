@@ -11,7 +11,6 @@ export default class WarehouseError extends Error {
   constructor(msg: string, public code?: string) {
     super(msg);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     Error.captureStackTrace(this);
   }
 }

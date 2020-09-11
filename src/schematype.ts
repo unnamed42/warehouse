@@ -2,10 +2,20 @@ import { setProp } from './util';
 import ValidationError from './error/validation';
 import { ValueType } from './types';
 
-export interface SchemaOptions<TData> {
-  required: boolean;
-  default: TData | (() => TData);
+export interface SchemaOptions<TData extends ValueType = ValueType> {
+  required?: boolean;
+  default?: TData | (() => TData);
+
+  // used in array types
+  // eslint-disable-next-line no-use-before-define
+  child?: SchemaType<TData>;
+  // used in buffer types
+  encoding?: BufferEncoding;
+  // used in enum types
+  elements?: ValueType[];
 }
+
+export type QueryType = ValueType | RegExp;
 
 // workaround of type system
 const isFunction = <T>(fn: T | (() => T)): fn is (() => T) =>
@@ -55,27 +65,26 @@ const isFunction = <T>(fn: T | (() => T)): fn is (() => T) =>
  * The return value will replace the original data.
  */
 export default class SchemaType<
-  TValue extends ValueType = ValueType,
-  TOption extends SchemaOptions<TValue> = SchemaOptions<TValue>,
-  Query extends ValueType = any
+  T extends ValueType = ValueType,
+  Query extends QueryType = QueryType
 > {
 
   protected name: string;
-  protected options: TOption;
-  protected default: () => TValue;
+  protected options: SchemaOptions<T>;
+  protected default: () => T | undefined;
 
   /**
    * SchemaType constructor.
    *
    */
-  constructor(name: string, options?: TOption) {
+  constructor(name?: string, options?: SchemaOptions<T>) {
     this.name = name || '';
 
     this.options = Object.assign({
       required: false
     }, options);
 
-    const default_ = this.options.default;
+    const { default: default_ } = this.options;
 
     if (isFunction(default_)) {
       this.default = default_;
@@ -89,7 +98,7 @@ export default class SchemaType<
    * instances. If the value is null, the default value will be returned.
    *
    */
-  cast(value?: ValueType | null, _data?: unknown): ValueType | null {
+  cast(value?: ValueType, _data?: unknown): ValueType | undefined {
     if (value == null) {
       return this.default();
     }
@@ -101,7 +110,7 @@ export default class SchemaType<
    * Validates data. This function is used by setters.
    *
    */
-  validate(value: ValueType | null, _data?: unknown): ValueType | null {
+  validate(value: ValueType | undefined, _data?: unknown): ValueType | undefined {
     if (this.options.required && value == null) {
       throw new ValidationError(`\`${this.name}\` is required!`);
     }
@@ -113,7 +122,10 @@ export default class SchemaType<
    * Compares data. This function is used when sorting.
    *
    */
-  compare(a: TValue, b: TValue): Order {
+  compare(lhs: ValueType, rhs: ValueType): number {
+    const a = lhs ?? 0;
+    const b = rhs ?? 0;
+
     if (a > b) {
       return 1;
     } else if (a < b) {
@@ -127,8 +139,8 @@ export default class SchemaType<
    * Parses data. This function is used when restoring data from database files.
    *
    */
-  parse(value: ValueType, _data?: unknown): TValue {
-    return value as TValue;
+  parse(value: ValueType, _data?: unknown): ValueType {
+    return value;
   }
 
   /**
@@ -172,7 +184,7 @@ export default class SchemaType<
    *
    */
   q$lt(value: ValueType, query: Query, _data?: unknown): boolean {
-    return value < query;
+    return (value ?? 0) < query;
   }
 
   /**
@@ -180,7 +192,7 @@ export default class SchemaType<
    *
    */
   q$lte(value: ValueType, query: Query, _data?: unknown): boolean {
-    return value <= query;
+    return (value ?? 0) <= query;
   }
 
   q$max(value: ValueType, query: Query, _data?: unknown): boolean {
@@ -192,7 +204,7 @@ export default class SchemaType<
    *
    */
   q$gt(value: ValueType, query: Query, _data?: unknown): boolean {
-    return value > query;
+    return (value ?? 0) > query;
   }
 
   /**
@@ -200,7 +212,7 @@ export default class SchemaType<
    *
    */
   q$gte(value: ValueType, query: Query, _data?: unknown): boolean {
-    return value >= query;
+    return (value ?? 0) >= query;
   }
 
   q$min(value: ValueType, query: Query, _data?: unknown): boolean {
@@ -211,23 +223,23 @@ export default class SchemaType<
    * Checks whether `value` is equal to one of elements in `query`.
    *
    */
-  q$in(value: ValueType, query: Query, _data?: unknown): boolean {
-    return query.includes(value);
+  q$in(value: ValueType, query: Query[], _data?: unknown): boolean {
+    return query.includes(value as Query);
   }
 
   /**
    * Checks whether `value` is not equal to any elements in `query`.
    *
    */
-  q$nin(value: ValueType, query: Query, _data?: unknown): boolean {
-    return !query.includes(value);
+  q$nin(value: ValueType, query: Query[], _data?: unknown): boolean {
+    return !query.includes(value as Query);
   }
 
   /**
    * Sets the value.
    *
    */
-  u$set(_value: ValueType, update: TValue, _data?: unknown): TValue {
+  u$set(_value: ValueType, update: ValueType, _data?: unknown): ValueType {
     return update;
   }
 
@@ -235,19 +247,15 @@ export default class SchemaType<
    * Unsets the value.
    *
    */
-  u$unset(value: ValueType, update: TValue, _data?: unknown): TValue | undefined {
-    return update ? undefined : value as TValue;
+  u$unset(value: ValueType, update: ValueType, _data?: unknown): ValueType | undefined {
+    return update ? undefined : value;
   }
 
   /**
    * Renames a field.
    *
-   * @param {*} value
-   * @param {*} update
-   * @param {Object} data
-   * @return {*}
    */
-  u$rename(value: ValueType | undefined, update: TValue, data: Any): void {
+  u$rename(value: ValueType | undefined, update: ValueType, data: Any): void {
     if (value !== undefined) setProp(data, update as string, value);
     return undefined;
   }

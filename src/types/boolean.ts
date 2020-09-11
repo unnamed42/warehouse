@@ -5,13 +5,13 @@ import ValidationError from '../error/validation';
 /**
  * Boolean schema type.
  */
-export default class SchemaTypeBoolean extends SchemaType<boolean> {
+export default class SchemaTypeBoolean extends SchemaType {
 
   /**
    * Casts a boolean.
    *
    */
-  cast(value_: ValueType | null, _data?: unknown): boolean {
+  cast(value_: ValueType, _data?: unknown): boolean {
     const value = super.cast(value_, _data);
 
     if (value === 'false' || value === '0') return false;
@@ -23,10 +23,12 @@ export default class SchemaTypeBoolean extends SchemaType<boolean> {
    * Validates a boolean.
    *
    */
-  validate(value_: ValueType | null, _data: unknown): boolean | null {
+  validate(value_: ValueType, _data: unknown): boolean | null {
     const value = super.validate(value_, _data);
 
-    if (value != null && typeof value !== 'boolean') {
+    if (value == null) return null;
+
+    if (typeof value !== 'boolean') {
       throw new ValidationError(`\`${value}\` is not a boolean!`);
     }
 

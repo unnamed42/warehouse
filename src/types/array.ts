@@ -1,21 +1,17 @@
 import SchemaType, { SchemaOptions } from '../schematype';
+import {ValueType} from './';
 import ValidationError from '../error/validation';
 
 const { isArray } = Array;
 
-interface ArrayOptions<T> extends SchemaOptions<T> {
-  required: false;
-  child?: SchemaType<unknown>;
-}
-
 /**
  * Array schema type.
  */
-class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> {
+export default class SchemaTypeArray extends SchemaType {
 
-  private child: SchemaType<unknown>;
+  private readonly child: SchemaType;
 
-  constructor(name: string, options?: ArrayOptions<TElem[]>) {
+  constructor(name: string, options?: SchemaOptions) {
     super(name, Object.assign({
       default: []
     }, options));
@@ -27,9 +23,9 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
    * Casts an array and its child elements.
    *
    */
-  cast(value_: TElem[], data: Any): TElem[] {
+  cast(value_: ValueType, data: Any): ValueType[] | null {
     let value = super.cast(value_, data);
-    if (value == null) return value;
+    if (value == null) return null;
 
     if (!isArray(value)) value = [value];
     if (!value.length) return value;
@@ -37,8 +33,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
     const child = this.child;
 
     for (let i = 0, len = value.length; i < len; i++) {
-      // TODO: more precise type
-      value[i] = child.cast(value[i], data) as TElem;
+      // TODO: `undefined` handling
+      value[i] = child.cast(value[i], data)!;
     }
 
     return value;
@@ -47,11 +43,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Validates an array and its child elements.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {Array|Error}
    */
-  validate(value_, data) {
+  validate(value_: ValueType | null, data?: unknown): ValueType[] {
     const value = super.validate(value_, data);
 
     if (!isArray(value)) {
@@ -63,7 +56,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
     const child = this.child;
 
     for (let i = 0, len = value.length; i < len; i++) {
-      value[i] = child.validate(value[i], data);
+      // TODO: investigate `undefined`-ness
+      value[i] = child.validate(value[i], data)!;
     }
 
     return value;
@@ -72,11 +66,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Compares an array by its child elements and the size of the array.
    *
-   * @param {Array} a
-   * @param {Array} b
-   * @return {Number}
    */
-  compare(a, b) {
+  compare(a: ValueType[], b: ValueType[]): number {
     if (a) {
       if (!b) return 1;
     } else {
@@ -99,17 +90,14 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Parses data.
    *
-   * @param {Array} value
-   * @param {Object} data
-   * @return {Array}
    */
-  parse(value, data) {
+  parse(value: ValueType[], data?: unknown): ValueType[] {
     if (!value) return value;
 
     const len = value.length;
     if (!len) return [];
 
-    const result = new Array(len);
+    const result = new Array<ValueType>(len);
     const child = this.child;
 
     for (let i = 0; i < len; i++) {
@@ -122,17 +110,14 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Transforms data.
    *
-   * @param {Array} value
-   * @param {Object} data
-   * @return {Array}
    */
-  value(value, data) {
+  value(value: ValueType[], data?: unknown): ValueType[] {
     if (!value) return value;
 
     const len = value.length;
     if (!len) return [];
 
-    const result = new Array(len);
+    const result = new Array<ValueType>(len);
     const child = this.child;
 
     for (let i = 0; i < len; i++) {
@@ -145,12 +130,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Checks the equality of an array.
    *
-   * @param {Array} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  match(value, query, data) {
+  match(value: ValueType[], query: ValueType[], data?: unknown): boolean {
     if (!value || !query) {
       return value === query;
     }
@@ -172,24 +153,20 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Checks whether the number of elements in an array is equal to `query`.
    *
-   * @param {Array} value
-   * @param {Number} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$size(value, query, data) {
+  q$size(value: ValueType[], query: number, _data?: unknown): boolean {
     return (value ? value.length : 0) === query;
+  }
+
+  q$length(value: ValueType[], query: number, _data?: unknown): boolean {
+    return this.q$size(value, query, _data);
   }
 
   /**
    * Checks whether an array contains one of elements in `query`.
    *
-   * @param {Array} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$in(value, query, data) {
+  q$in(value: ValueType[], query: ValueType[], _data?: unknown): boolean {
     if (!value) return false;
 
     for (let i = 0, len = query.length; i < len; i++) {
@@ -202,12 +179,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Checks whether an array does not contain in any elements in `query`.
    *
-   * @param {Array} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$nin(value, query, data) {
+  q$nin(value: ValueType[], query: ValueType[], _data?: unknown): boolean {
     if (!value) return true;
 
     for (let i = 0, len = query.length; i < len; i++) {
@@ -220,12 +193,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Checks whether an array contains all elements in `query`.
    *
-   * @param {Array} value
-   * @param {Array} query
-   * @param {Object} data
-   * @return {Boolean}
    */
-  q$all(value, query, data) {
+  q$all(value: ValueType[], query: ValueType[], _data?: unknown): boolean {
     if (!value) return false;
 
     for (let i = 0, len = query.length; i < len; i++) {
@@ -238,12 +207,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Add elements to an array.
    *
-   * @param {Array} value
-   * @param {*} update
-   * @param {Object} data
-   * @return {Array}
    */
-  u$push(value, update, data) {
+  u$push(value: ValueType[], update: ValueType, _data?: unknown): ValueType[] {
     if (isArray(update)) {
       return value ? value.concat(update) : update;
     }
@@ -256,15 +221,15 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
     return [update];
   }
 
+  u$append(value: ValueType[], update: ValueType, _data?: unknown): ValueType[] {
+    return this.u$push(value, update, _data);
+  }
+
   /**
    * Add elements in front of an array.
    *
-   * @param {Array} value
-   * @param {*} update
-   * @param {Object} data
-   * @return {Array}
    */
-  u$unshift(value, update, data) {
+  u$unshift(value: ValueType[], update: ValueType, _data?: unknown): ValueType[] {
     if (isArray(update)) {
       return value ? update.concat(value) : update;
     }
@@ -277,15 +242,15 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
     return [update];
   }
 
+  u$prepend(value: ValueType[], update: ValueType, _data?: unknown): ValueType[] {
+    return this.u$unshift(value, update, _data);
+  }
+
   /**
    * Removes elements from an array.
    *
-   * @param {Array} value
-   * @param {*} update
-   * @param {Object} data
-   * @return {Array}
    */
-  u$pull(value, update, data) {
+  u$pull(value: ValueType[], update: ValueType, _data?: unknown): ValueType[] {
     if (!value) return value;
 
     if (isArray(update)) {
@@ -298,12 +263,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Removes the first element from an array.
    *
-   * @param {Array} value
-   * @param {Number|Boolean} update
-   * @param {Object} data
-   * @return {Array}
    */
-  u$shift(value, update, data) {
+  u$shift(value: ValueType[], update: number | boolean, _data?: unknown): ValueType[] {
     if (!value || !update) return value;
 
     if (update === true) {
@@ -318,12 +279,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Removes the last element from an array.
    *
-   * @param {Array} value
-   * @param {Number|Boolean} update
-   * @param {Object} data
-   * @return {Array}
    */
-  u$pop(value, update, data) {
+  u$pop(value: ValueType[], update: number | boolean, _data?: unknown): ValueType[] {
     if (!value || !update) return value;
 
     const length = value.length;
@@ -340,12 +297,8 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
   /**
    * Add elements to an array only if the value is not already in the array.
    *
-   * @param {Array} value
-   * @param {*} update
-   * @param {Object} data
-   * @return {Array}
    */
-  u$addToSet(value, update, data) {
+  u$addToSet(value: ValueType[], update: ValueType, _data?: unknown): ValueType[] {
     if (isArray(update)) {
       if (!value) return update;
 
@@ -366,11 +319,3 @@ class SchemaTypeArray<TElem> extends SchemaType<TElem[], ArrayOptions<TElem[]>> 
     return value;
   }
 }
-
-SchemaTypeArray.prototype.q$length = SchemaTypeArray.prototype.q$size;
-
-SchemaTypeArray.prototype.u$append = SchemaTypeArray.prototype.u$push;
-
-SchemaTypeArray.prototype.u$prepend = SchemaTypeArray.prototype.u$unshift;
-
-module.exports = SchemaTypeArray;

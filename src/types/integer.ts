@@ -11,10 +11,11 @@ export default class SchemaTypeInteger extends SchemaTypeNumber {
    * Casts a integer.
    *
    */
-  cast(value_: ValueType | null, _data?: unknown): number {
+  cast(value_: string | number | null, _data?: unknown): number {
     const value = super.cast(value_, _data);
 
-    return parseInt(value, 10);
+    // `parseInt` accepts more than string
+    return parseInt(value as unknown as string, 10);
   }
 
   /**

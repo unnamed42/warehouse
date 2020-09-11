@@ -157,7 +157,7 @@ export default class Query<T> {
       }
     }
 
-    return lean ? arr : new this.constructor(arr);
+    return lean ? arr : new Query(arr);
   }
 
   /**

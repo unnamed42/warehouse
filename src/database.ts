@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const JSONStream = require('JSONStream');
+// disable errors about global `Promise` redefinition
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import Promise from 'bluebird';
@@ -24,7 +25,8 @@ if (typeof fs.writev === 'function') {
   };
 }
 
-async function exportAsync(database, path) {
+// eslint-disable-next-line no-use-before-define
+async function exportAsync(database: Database, path: fs.PathLike) {
   const handle = await open(path, 'w');
 
   try {
@@ -61,9 +63,21 @@ async function exportAsync(database, path) {
   }
 }
 
+export interface DatabaseOptions {
+  version: number;
+  path: string;
+  onUpgrade: () => void;
+  onDowngrade: () => void;
+}
+
 export default class Database {
 
   static version = pkg.version as string;
+
+  readonly Model: typeof Model;
+
+  private readonly options: DatabaseOptions;
+  private readonly _models: Model;
 
   /**
    * Database constructor.
@@ -74,20 +88,18 @@ export default class Database {
    *   @param {function} [options.onUpgrade] Triggered when the database is upgraded
    *   @param {function} [options.onDowngrade] Triggered when the database is downgraded
    */
-  constructor(options) {
+  constructor(options: DatabaseOptions) {
     this.options = Object.assign({
       version: 0,
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       onUpgrade() {},
-
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       onDowngrade() {}
     }, options);
 
     this._models = {};
-
     class _Model extends Model {}
-
     this.Model = _Model;
-
     _Model.prototype._database = this;
   }
 

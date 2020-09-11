@@ -1,24 +1,13 @@
 import SchemaType, { SchemaOptions } from '../schematype';
-import type { ValueType } from './';
 import ValidationError from '../error/validation';
-
-interface BufferOptions extends SchemaOptions<Buffer> {
-  encoding?: BufferEncoding;
-}
+import type { ValueType } from './';
 
 /**
  * Boolean schema type.
  */
-export default class SchemaTypeBuffer extends SchemaType<Buffer, BufferOptions> {
+export default class SchemaTypeBuffer extends SchemaType {
 
-  /**
-   * @param {string} name
-   * @param {object} [options]
-   *   @param {boolean} [options.required=false]
-   *   @param {boolean|Function} [options.default]
-   *   @param {string} [options.encoding=hex]
-   */
-  constructor(name: string, options: BufferOptions) {
+  constructor(name: string, options: SchemaOptions) {
     super(name, Object.assign({
       encoding: 'hex'
     }, options));
@@ -28,12 +17,15 @@ export default class SchemaTypeBuffer extends SchemaType<Buffer, BufferOptions> 
    * Casts data.
    *
    */
-  cast(value_: ValueType | null, data?: unknown): Buffer | null | undefined {
+  cast(value_: ValueType | null, data?: unknown): Buffer | null {
     const value = super.cast(value_, data);
 
-    if (value == null || Buffer.isBuffer(value)) return value;
+    if (value == null) return null;
+    if (Buffer.isBuffer(value)) return value;
     if (typeof value === 'string') return Buffer.from(value, this.options.encoding);
     if (Array.isArray(value)) return Buffer.from(value);
+
+    throw new ValidationError(`\`${value}\` cannot be interpreted as Buffer`);
   }
 
   /**
@@ -54,9 +46,9 @@ export default class SchemaTypeBuffer extends SchemaType<Buffer, BufferOptions> 
    * Compares between two buffers.
    *
    */
-  compare(a: Buffer, b: Buffer): Order {
+  compare(a: Buffer, b: Buffer): number {
     if (Buffer.isBuffer(a)) {
-      return Buffer.isBuffer(b) ? a.compare(b) as Order : 1;
+      return Buffer.isBuffer(b) ? a.compare(b) : 1;
     }
 
     return Buffer.isBuffer(b) ? -1 : 0;
@@ -65,20 +57,17 @@ export default class SchemaTypeBuffer extends SchemaType<Buffer, BufferOptions> 
   /**
    * Parses data and transform them into buffer values.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {Boolean}
    */
-  parse(value: ValueType, _data?: unknown): boolean {
-    return value ? Buffer.from(value, this.options.encoding) : value;
+  parse(value: ValueType, _data?: unknown): ValueType {
+    return value ? Buffer.from(value as string, this.options.encoding) : value;
   }
 
   /**
    * Transforms data into number to compress the size of database files.
    *
    */
-  value(value: Buffer, _data?: unknown): number {
-    return Buffer.isBuffer(value) ? value.toString(this.options.encoding) : value;
+  value(value: ValueType, _data?: unknown): string | null {
+    return Buffer.isBuffer(value) ? value.toString(this.options.encoding) : value as string | null;
   }
 
   /**

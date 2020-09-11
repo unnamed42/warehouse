@@ -14,18 +14,13 @@
     "skipLibCheck": true,
     "noImplicitThis": false,
     "removeComments": true,
+    "declaration": true,
     "outDir": "./lib",
     "baseUrl": ".",
-    "types": [
-      "@types/jsonstream"
-    ],
     "paths": {
-      "@/*": [
-        "src/*"
-      ],
     },
     "lib": [
-      "es2018",
+      "es2018"
     ]
   },
   "include": [
