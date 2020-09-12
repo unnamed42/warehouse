@@ -4,6 +4,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "esModuleInterop": true,
+    "isolatedModules": true,
     "strict": true,
     "alwaysStrict": true,
     "strictNullChecks": true,
@@ -18,6 +19,9 @@
     "outDir": "./lib",
     "baseUrl": ".",
     "paths": {
+      "@/*": [
+        "src/*"
+      ]
     },
     "lib": [
       "es2018"
