@@ -1,4 +1,6 @@
 import Promise from 'bluebird';
+import Model from './model';
+import Schema from './schema';
 import { parseArgs, shuffle } from './util';
 
 type IterateFn<T, TResult = void> =
@@ -9,8 +11,11 @@ type ReduceFn<T> =
 
 export default class Query<T> {
 
-  private data: T[];
-  private length: number;
+  _model!: Model;
+  _schema!: Schema;
+
+  private readonly data: T[];
+  private readonly length: number;
 
   /**
    * Query constructor.

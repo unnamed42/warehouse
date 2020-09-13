@@ -1,5 +1,5 @@
 import SchemaType from '../schematype';
-import cuid from 'cuid/index';
+import cuid from 'cuid';
 import ValidationError from '../error/validation';
 
 /**
@@ -23,9 +23,6 @@ export default class SchemaTypeCUID extends SchemaType {
   /**
    * Validates data. A valid CUID must be started with `c` and 25 in length.
    *
-   * @param {*} value
-   * @param {Object} data
-   * @return {String|Error}
    */
   validate(value: string | null, _data?: unknown): string | null {
     if (value && (value[0] !== 'c' || value.length !== 25)) {

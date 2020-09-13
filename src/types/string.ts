@@ -3,7 +3,6 @@ import type { ValueType } from './';
 import ValidationError from '../error/validation';
 
 const isRegexp = (expr: QueryType): expr is RegExp =>
-  // eslint-disable-next-line no-extra-parens
   typeof(expr as RegExp).test === 'function';
 
 /**
@@ -15,25 +14,20 @@ export default class SchemaTypeString extends SchemaType {
    * Casts a string.
    *
    */
-  cast(value_: ValueType | null, data?: unknown): string | null {
+  cast(value_: ValueType | null, data?: unknown): string | null | undefined {
     const value = super.cast(value_, data);
 
-    if (value == null) return null;
-    if (typeof value === 'string') return value;
+    if (value == null || typeof value === 'string') return value;
     if (typeof value.toString === 'function') return value.toString();
-
-    throw new ValidationError(`\`${value} cannot be interpreted as string\``);
   }
 
   /**
    * Validates a string.
    */
-  validate(value_: ValueType, data?: unknown): string | null {
+  validate(value_: ValueType, data?: unknown): string | null | undefined {
     const value = super.validate(value_, data);
 
-    if (value == null) return null;
-
-    if (typeof value !== 'string') {
+    if (value !== undefined && typeof value !== 'string') {
       throw new ValidationError(`\`${value}\` is not a string!`);
     }
 
@@ -54,6 +48,7 @@ export default class SchemaTypeString extends SchemaType {
     }
 
     if (isRegexp(query)) {
+      // `Regex.test` returns false for non-string types
       return query.test(value as string);
     }
 

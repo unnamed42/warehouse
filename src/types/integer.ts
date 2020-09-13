@@ -25,10 +25,11 @@ export default class SchemaTypeInteger extends SchemaTypeNumber {
   validate(value_: ValueType, data?: unknown): number {
     const value = super.validate(value_, data);
 
-    if (value % 1 !== 0) {
+    // `undefined` evaluates to false here
+    if (value! % 1 !== 0) {
       throw new ValidationError(`\`${value}\` is not an integer!`);
     }
 
-    return value;
+    return value!;
   }
 }

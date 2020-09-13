@@ -4,26 +4,33 @@ import Promise from 'bluebird';
 import { parseArgs, getProp, setGetter, shuffle } from './util';
 import Document from './document';
 import Query from './query';
-import Schema from './schema';
-import * as Types from './types';
+import Schema, { SchemaDefinition } from './schema';
+import { Types } from './types';
 import WarehouseError from './error';
 import PopulationError from './error/population';
 import Mutex from './mutex';
+import Database from './database';
 
 const cloneDeep = rfdc();
 
 export default class Model extends EventEmitter {
 
-  private name: string;
-  private schema: Schema;
+  private readonly Document: typeof Document;
+  private readonly Query: typeof Query;
+
+  private readonly name: string;
+  private readonly data: Any;
+  private readonly schema: Schema;
   private length: number;
-  private _mutex: Mutex;
+  private readonly _mutex: Mutex;
+
+  _database!: Database;
 
   /**
    * Model constructor.
    *
    */
-  constructor(name: string, schema_: Schema | Any) {
+  constructor(name: string, schema_?: Schema | SchemaDefinition) {
     super();
 
     let schema: Schema;
@@ -39,7 +46,7 @@ export default class Model extends EventEmitter {
 
     // Set `_id` path for schema
     if (!schema.path('_id')) {
-      schema.path('_id', {type: Types.CUID, required: true});
+      schema.path('_id', { type: Types.CUID, required: true });
     }
 
     this.name = name;
@@ -48,7 +55,7 @@ export default class Model extends EventEmitter {
     this.schema = schema;
     this.length = 0;
 
-    class _Document extends Document {
+    class _Document extends Document<number> {
       constructor(data) {
         super(data);
 
@@ -62,7 +69,7 @@ export default class Model extends EventEmitter {
     _Document.prototype._model = this;
     _Document.prototype._schema = schema;
 
-    class _Query extends Query {}
+    class _Query<T> extends Query<T> {}
 
     this.Query = _Query;
 
@@ -94,7 +101,7 @@ export default class Model extends EventEmitter {
    *   @param {boolean} [options.lean=false] Returns a plain JavaScript object
    * @return {Document|object}
    */
-  findById(id, options_) {
+  findById(id, options_: { lean?: boolean }): Any | Document | undefined {
     const raw = this.data[id];
     if (!raw) return;
 
@@ -112,7 +119,7 @@ export default class Model extends EventEmitter {
    * @param {*} id
    * @return {boolean}
    */
-  has(id) {
+  has(id): boolean {
     return Boolean(this.data[id]);
   }
 
@@ -126,7 +133,7 @@ export default class Model extends EventEmitter {
   _acquireWriteLock(id) {
     const mutex = this._mutex;
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _) => {
       mutex.lock(resolve);
     }).disposer(() => {
       mutex.unlock();
@@ -140,7 +147,7 @@ export default class Model extends EventEmitter {
    * @return {Promise}
    * @private
    */
-  _insertOne(data_) {
+  _insertOne(data_: Document | Any) {
     const schema = this.schema;
 
     // Apply getters
@@ -912,7 +919,7 @@ export default class Model extends EventEmitter {
    * @param {Array} arr
    * @private
    */
-  _import(arr) {
+  _import<T>(arr: T[]): void {
     const len = arr.length;
     const data = this.data;
     const schema = this.schema;
@@ -965,5 +972,3 @@ Model.prototype.size = Model.prototype.count;
 Model.prototype.each = Model.prototype.forEach;
 
 Model.prototype.random = Model.prototype.shuffle;
-
-module.exports = Model;

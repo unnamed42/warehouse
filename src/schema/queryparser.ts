@@ -29,7 +29,6 @@ export type QueryParseCallback =
   (a: Any, b: Any) => Any;
 
 export class QueryParser<Query extends Any = Any> {
-  // eslint-disable-next-line no-useless-constructor
   constructor(private paths: Record<string, SchemaType>) {}
 
   /**

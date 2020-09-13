@@ -1,5 +1,5 @@
-import SchemaType, { SchemaOptions } from '../schematype';
-import {ValueType} from './';
+import SchemaType, { QueryType, SchemaOptions } from '../schematype';
+import { ValueType } from './';
 import ValidationError from '../error/validation';
 
 const { isArray } = Array;
@@ -33,7 +33,7 @@ export default class SchemaTypeArray extends SchemaType {
     const child = this.child;
 
     for (let i = 0, len = value.length; i < len; i++) {
-      // TODO: `undefined` handling
+      // TODO: investigate `undefined`-ness
       value[i] = child.cast(value[i], data)!;
     }
 
@@ -131,7 +131,7 @@ export default class SchemaTypeArray extends SchemaType {
    * Checks the equality of an array.
    *
    */
-  match(value: ValueType[], query: ValueType[], data?: unknown): boolean {
+  match(value: ValueType[], query: QueryType[], data?: unknown): boolean {
     if (!value || !query) {
       return value === query;
     }

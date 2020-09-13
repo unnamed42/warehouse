@@ -1,29 +1,24 @@
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const JSONStream = require('JSONStream');
-// disable errors about global `Promise` redefinition
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
+import JSONStream from 'JSONStream';
+// @ts-ignore: disable errors about global `Promise` redefinition
 import Promise from 'bluebird';
-import fs from 'graceful-fs';
+// workaround complaints about no default exports of eslint import/default
+import { default as fs } from 'graceful-fs';
 import * as stream from 'stream';
 import Model from './model';
-import Schema from './schema';
+import Schema, { SchemaDefinition } from './schema';
 import SchemaType from './schematype';
 import WarehouseError from './error';
 
-const pkg = require('../package.json') as Any;
+import pkg = require('../package.json');
+import type { FileHandle } from 'fs/promises';
 const { open } = fs.promises;
 const pipeline = Promise.promisify(stream.pipeline);
 
-let _writev;
-
-if (typeof fs.writev === 'function') {
-  _writev = (handle, buffers) => handle.writev(buffers);
-} else {
-  _writev = async (handle, buffers) => {
+const _writev = typeof fs.writev === 'function'
+  ? (handle: FileHandle, buffers: NodeJS.ArrayBufferView[]) => handle.writev(buffers)
+  : async (handle: FileHandle, buffers: Array<string | Uint8Array>) => {
     for (const buffer of buffers) await handle.write(buffer);
   };
-}
 
 // eslint-disable-next-line no-use-before-define
 async function exportAsync(database: Database, path: fs.PathLike) {
@@ -63,41 +58,60 @@ async function exportAsync(database: Database, path: fs.PathLike) {
   }
 }
 
+export interface DatabaseMeta {
+  meta: {
+    version: number;
+    warehouse: string;
+  };
+  models: Record<string, Model>;
+}
+
 export interface DatabaseOptions {
+
+  /**
+   * Database version
+   */
   version: number;
-  path: string;
-  onUpgrade: () => void;
-  onDowngrade: () => void;
+
+  /**
+   * Database path
+   */
+  path?: string;
+
+  /**
+   * Triggered when the database is upgraded
+   */
+  onUpgrade: (oldVersion: number, newVersion: number) => void;
+
+  /**
+   * Triggered when the database is downgraded
+   */
+  onDowngrade: (oldVersion: number, newVersion: number) => void;
 }
 
 export default class Database {
 
-  static version = pkg.version as string;
+  static version: string = pkg.version;
+
+  readonly Schema = typeof Schema;
+  readonly SchemaType = typeof SchemaType;
+  static Schema = Database.prototype.Schema;
+  static SchemaType = Database.prototype.SchemaType;
 
   readonly Model: typeof Model;
 
-  private readonly options: DatabaseOptions;
-  private readonly _models: Model;
+  public options: DatabaseOptions;
+  readonly _models: Record<string, Model>;
 
-  /**
-   * Database constructor.
-   *
-   * @param {object} [options]
-   *   @param {number} [options.version=0] Database version
-   *   @param {string} [options.path] Database path
-   *   @param {function} [options.onUpgrade] Triggered when the database is upgraded
-   *   @param {function} [options.onDowngrade] Triggered when the database is downgraded
-   */
-  constructor(options: DatabaseOptions) {
+  constructor(options: Partial<DatabaseOptions>) {
     this.options = Object.assign({
       version: 0,
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
       onUpgrade() {},
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
       onDowngrade() {}
     }, options);
 
     this._models = {};
+
     class _Model extends Model {}
     this.Model = _Model;
     _Model.prototype._database = this;
@@ -106,11 +120,8 @@ export default class Database {
   /**
    * Creates a new model.
    *
-   * @param {string} name
-   * @param {Schema|object} [schema]
-   * @return {Model}
    */
-  model(name, schema) {
+  model(name: string, schema?: Schema | SchemaDefinition): Model {
     if (this._models[name]) {
       return this._models[name];
     }
@@ -126,14 +137,14 @@ export default class Database {
    * @param {function} [callback]
    * @return {Promise}
    */
-  load(callback) {
+  load(callback: () => void): Promise<void> {
     const { path, onUpgrade, onDowngrade, version: newVersion } = this.options;
 
     if (!path) throw new WarehouseError('options.path is required');
 
     let oldVersion = 0;
 
-    const getMetaCallBack = data => {
+    const getMetaCallBack = (data: DatabaseMeta) => {
       if (data.meta && data.meta.version) {
         oldVersion = data.meta.version;
       }
@@ -163,23 +174,21 @@ export default class Database {
   /**
    * Saves database.
    *
-   * @param {function} [callback]
-   * @return {Promise}
    */
-  save(callback) {
+  save(callback: () => void): Promise<void> {
     const { path } = this.options;
 
     if (!path) throw new WarehouseError('options.path is required');
     return Promise.resolve(exportAsync(this, path)).asCallback(callback);
   }
 
-  toJSON() {
+  toJSON(): DatabaseMeta {
     const models = Object.keys(this._models)
       .reduce((obj, key) => {
         const value = this._models[key];
         if (value != null) obj[key] = value;
         return obj;
-      }, {});
+      }, {} as Record<string, Model>);
 
     return {
       meta: {
@@ -189,9 +198,3 @@ export default class Database {
     };
   }
 }
-
-Database.prototype.Schema = Schema;
-Database.Schema = Database.prototype.Schema;
-Database.prototype.SchemaType = SchemaType;
-Database.SchemaType = Database.prototype.SchemaType;
-Database.version = pkg.version;

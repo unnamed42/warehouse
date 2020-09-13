@@ -2,24 +2,21 @@ import { setProp } from './util';
 import ValidationError from './error/validation';
 import { ValueType } from './types';
 
-export interface SchemaOptions<TData extends ValueType = ValueType> {
+export interface SchemaOptions {
   required?: boolean;
-  default?: TData | (() => TData);
+  default?: ValueType | (() => ValueType);
 
   // used in array types
   // eslint-disable-next-line no-use-before-define
-  child?: SchemaType<TData>;
+  child?: SchemaType;
   // used in buffer types
   encoding?: BufferEncoding;
   // used in enum types
   elements?: ValueType[];
 }
 
-export type QueryType = ValueType | RegExp;
-
-// workaround of type system
-const isFunction = <T>(fn: T | (() => T)): fn is (() => T) =>
-  typeof fn === 'function';
+// QueryType[] for compatibility of `SchemaArray.match`
+export type QueryType = ValueType | RegExp | QueryType[];
 
 /**
  * This is the basic schema type.
@@ -64,20 +61,17 @@ const isFunction = <T>(fn: T | (() => T)): fn is (() => T) =>
  *
  * The return value will replace the original data.
  */
-export default class SchemaType<
-  T extends ValueType = ValueType,
-  Query extends QueryType = QueryType
-> {
+export default class SchemaType {
 
   protected name: string;
-  protected options: SchemaOptions<T>;
-  protected default: () => T | undefined;
+  protected options: SchemaOptions;
+  protected default: () => ValueType | undefined;
 
   /**
    * SchemaType constructor.
    *
    */
-  constructor(name?: string, options?: SchemaOptions<T>) {
+  constructor(name?: string, options?: SchemaOptions) {
     this.name = name || '';
 
     this.options = Object.assign({
@@ -86,7 +80,7 @@ export default class SchemaType<
 
     const { default: default_ } = this.options;
 
-    if (isFunction(default_)) {
+    if (typeof default_ === 'function') {
       this.default = default_;
     } else {
       this.default = () => default_;
@@ -122,13 +116,10 @@ export default class SchemaType<
    * Compares data. This function is used when sorting.
    *
    */
-  compare(lhs: ValueType, rhs: ValueType): number {
-    const a = lhs ?? 0;
-    const b = rhs ?? 0;
-
-    if (a > b) {
+  compare(a: ValueType, b: ValueType): number {
+    if (a! > b!) {
       return 1;
-    } else if (a < b) {
+    } else if (a! < b!) {
       return -1;
     }
 
@@ -155,7 +146,7 @@ export default class SchemaType<
    * Checks the equality of data.
    *
    */
-  match(value: ValueType, query: Query, _data?: unknown): boolean {
+  match(value: ValueType, query: QueryType, _data?: unknown): boolean {
     return value === query;
   }
 
@@ -163,11 +154,11 @@ export default class SchemaType<
    * Checks the existance of data.
    *
    */
-  q$exist(value: ValueType | null, query: Query, _data?: unknown): boolean {
+  q$exist(value: ValueType, query: QueryType, _data?: unknown): boolean {
     return (value != null) === query;
   }
 
-  q$exists(value: ValueType, query: Query, _data?: unknown): boolean {
+  q$exists(value: ValueType, query: QueryType, _data?: unknown): boolean {
     return this.q$exist(value, query, _data);
   }
 
@@ -175,7 +166,7 @@ export default class SchemaType<
    * Checks the equality of data. Returns true if the value doesn't match.
    *
    */
-  q$ne(value: ValueType, query: Query, data: unknown): boolean {
+  q$ne(value: ValueType, query: QueryType, data: unknown): boolean {
     return !this.match(value, query, data);
   }
 
@@ -183,19 +174,19 @@ export default class SchemaType<
    * Checks whether `value` is less than (i.e. <) the `query`.
    *
    */
-  q$lt(value: ValueType, query: Query, _data?: unknown): boolean {
-    return (value ?? 0) < query;
+  q$lt(value: ValueType, query: QueryType, _data?: unknown): boolean {
+    return value! < query!;
   }
 
   /**
    * Checks whether `value` is less than or equal to (i.e. <=) the `query`.
    *
    */
-  q$lte(value: ValueType, query: Query, _data?: unknown): boolean {
-    return (value ?? 0) <= query;
+  q$lte(value: ValueType, query: QueryType, _data?: unknown): boolean {
+    return value! <= query!;
   }
 
-  q$max(value: ValueType, query: Query, _data?: unknown): boolean {
+  q$max(value: ValueType, query: QueryType, _data?: unknown): boolean {
     return this.q$lte(value, query, _data);
   }
 
@@ -203,19 +194,19 @@ export default class SchemaType<
    * Checks whether `value` is greater than (i.e. >) the `query`.
    *
    */
-  q$gt(value: ValueType, query: Query, _data?: unknown): boolean {
-    return (value ?? 0) > query;
+  q$gt(value: ValueType, query: QueryType, _data?: unknown): boolean {
+    return value! > query!;
   }
 
   /**
    * Checks whether `value` is greater than or equal to (i.e. >=) the `query`.
    *
    */
-  q$gte(value: ValueType, query: Query, _data?: unknown): boolean {
-    return (value ?? 0) >= query;
+  q$gte(value: ValueType, query: QueryType, _data?: unknown): boolean {
+    return value! >= query!;
   }
 
-  q$min(value: ValueType, query: Query, _data?: unknown): boolean {
+  q$min(value: ValueType, query: QueryType, _data?: unknown): boolean {
     return this.q$gte(value, query, _data);
   }
 
@@ -223,16 +214,16 @@ export default class SchemaType<
    * Checks whether `value` is equal to one of elements in `query`.
    *
    */
-  q$in(value: ValueType, query: Query[], _data?: unknown): boolean {
-    return query.includes(value as Query);
+  q$in(value: ValueType, query: QueryType[], _data?: unknown): boolean {
+    return query.includes(value);
   }
 
   /**
    * Checks whether `value` is not equal to any elements in `query`.
    *
    */
-  q$nin(value: ValueType, query: Query[], _data?: unknown): boolean {
-    return !query.includes(value as Query);
+  q$nin(value: ValueType, query: QueryType[], _data?: unknown): boolean {
+    return !query.includes(value);
   }
 
   /**

@@ -1,14 +1,13 @@
-import SchemaType, {SchemaOptions} from './schematype';
-import { Types, ValueType } from './types';
+import SchemaType, {SchemaOptions} from '@/schematype';
+import { Types, ValueType } from '@/types';
 import Bluebird from 'bluebird';
-import { getProp, setProp, delProp } from './util';
-import PopulationError from './error/population';
+import { getProp, setProp, delProp } from '@/util';
+import PopulationError from '@/error/population';
 import { isPlainObject as _plainObj } from 'is-plain-object';
+import { QueryCallback } from './queryparser';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isPlainObject = <T extends Any>(obj: Recursive<T>): obj is T =>
   _plainObj(obj);
-
 
 /**
  * @typedef PopulateResult
@@ -61,9 +60,7 @@ export class UpdateParser {
     };
   }
 
-  constructor(paths) {
-    this.paths = paths;
-  }
+  constructor(private paths: Record<string, unknown>) {}
 
   /**
    * Parses updating expressions and returns a stack.
@@ -72,7 +69,7 @@ export class UpdateParser {
    * @param {queryCallback[]} [stack]
    * @private
    */
-  private parseUpdate(updates, prefix = '', stack = []) {
+  private parseUpdate(updates: Any, prefix = '', stack: QueryCallback<ValueType>[] = []) {
     const { paths } = this;
     const { updateStackOperator } = UpdateParser;
     const keys = Object.keys(updates);
@@ -114,5 +111,3 @@ export class UpdateParser {
     return stack;
   }
 }
-
-

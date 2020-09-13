@@ -17,7 +17,7 @@ export default class SchemaTypeBuffer extends SchemaType {
    * Casts data.
    *
    */
-  cast(value_: ValueType | null, data?: unknown): Buffer | null {
+  cast(value_: ValueType, data?: unknown): Buffer | null {
     const value = super.cast(value_, data);
 
     if (value == null) return null;

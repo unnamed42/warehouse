@@ -1,18 +1,25 @@
 // const cloneDeep = require('rfdc')();
 import rfdc from 'rfdc';
+import Model from '@/model';
+import Schema from '@/schema';
 
 const cloneDeep = rfdc();
 
 const isGetter = <T>(obj: T, key: string): boolean =>
   Object.getOwnPropertyDescriptor(obj, key)?.get === undefined;
 
-export default class Document<TData> {
+export default class Document {
+
+  // assigned later in parent context
+  _model!: Model;
+  _schema!: Schema;
+  _id!: string;
 
   /**
    * Document constructor.
    *
    */
-  constructor(data: TData) {
+  constructor(data?: Any) {
     if (data) {
       Object.assign(this, data);
     }
@@ -65,10 +72,18 @@ export default class Document<TData> {
    *
    */
   toObject(): Any {
-    return Object.entries(this).reduce((prev, [key, value]) => {
-      prev[key] = isGetter(this, key) ? value : cloneDeep(value);
-      return prev;
-    }, {} as Any);
+    const keys = Object.keys(this);
+    const obj: Any = {};
+
+    for (let i = 0, len = keys.length; i < len; i++) {
+      const key = keys[i];
+      const value = this[key as keyof this];
+      // Don't deep clone getters in order to avoid "Maximum call stack size
+      // exceeded" error
+      obj[key] = isGetter(this, key) ? value : cloneDeep(value);
+    }
+
+    return obj;
   }
 
   /**
@@ -85,7 +100,7 @@ export default class Document<TData> {
    * @param {String|Object} expr
    * @return {Document}
    */
-  populate(expr: string | Any): Document {
+  populate(expr: string | Any): this {
     const stack = this._schema._parsePopulate(expr);
     return this._model._populate(this, stack);
   }

@@ -1,10 +1,13 @@
-import {Types, ValueType} from '../types';
-import SchemaTypeVirtual from '../types/virtual';
-import { delProp, getProp, setProp } from '../util';
-import PopulationError from '../error/population';
-import SchemaType, { SchemaOptions } from '../schematype';
-import { QueryParser } from './queryparser';
 import Bluebird from 'bluebird';
+import type Document from '@/document';
+import type Model from '@/model';
+import { Types, ValueType } from '@/types';
+import SchemaTypeVirtual from '@/types/virtual';
+import { delProp, getProp, setProp } from '@/util';
+import PopulationError from '@/error/population';
+import SchemaType, { SchemaOptions } from '@/schematype';
+import { QueryParser } from './queryparser';
+import { UpdateParser } from './updateparser';
 
 type BuiltinConstructors =
   typeof String | typeof Number | typeof Boolean | typeof Array |
@@ -67,14 +70,29 @@ const checkHookType = (type: string) => {
   }
 };
 
-// eslint-disable-next-line @typescript-eslint/ban-types
-const hookWrapper = (fn: Function) => {
+type Resolvable<T> = T | PromiseLike<T>;
+
+type Fn0<R> = () => Resolvable<R>;
+type Fn1<T, R> = (arg: T) => Resolvable<R>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Fn2<T, R> = (arg: T, callback: (err: any, result?: R) => void) => void;
+
+function hookWrapper<R>(fn: Fn0<R>): () => Bluebird<R>;
+function hookWrapper<T, R>(fn: Fn1<T, R>): (arg: T) => Bluebird<R>;
+function hookWrapper<T, R>(fn: Fn2<T, R>): (arg: T) => Bluebird<R>;
+
+function hookWrapper<T, R>(
+  fn: Fn0<R> | Fn1<T, R> | Fn2<T, R>
+): (() => Bluebird<R>) | ((arg: T) => Bluebird<R>) {
   if (fn.length > 1) {
-    return Bluebird.promisify(fn);
+    return Bluebird.promisify(fn as Fn2<T, R>);
   }
 
-  return Bluebird.method(fn);
-};
+  return Bluebird.method(fn as Fn0<R> | Fn1<T, R>);
+}
+
+type DocumentMethod = (this: Document) => void;
+type ModelMethod = (this: Model) => void;
 
 export default class Schema {
 
@@ -83,8 +101,8 @@ export default class Schema {
   readonly Types = Schema.Types;
 
   private readonly paths: Record<string, SchemaType>;
-  private readonly statics: Any;
-  private readonly methods: Any;
+  readonly statics: Record<string, ModelMethod>;
+  readonly methods: Record<string, DocumentMethod>;
   private readonly hooks: {
     pre: {
       save: Any[];
@@ -100,7 +118,6 @@ export default class Schema {
   /**
    * Schema constructor.
    *
-   * @param {Object} schema
    */
   constructor(schema?: SchemaDefinition) {
     this.paths = {};
@@ -133,8 +150,6 @@ export default class Schema {
   /**
    * Adds paths.
    *
-   * @param {Object} schema
-   * @param {String} prefix
    */
   add(schema: SchemaDefinition, prefix = ''): void {
     const keys = Object.keys(schema);
@@ -154,7 +169,7 @@ export default class Schema {
    * Gets/Sets a path.
    *
    */
-  path(name: string, obj: SchemaDefinitionItem | SchemaType | null): SchemaType | undefined {
+  path(name: string, obj?: SchemaDefinitionItem | SchemaType | null): SchemaType | undefined {
     if (obj == null) {
       return this.paths[name];
     }
@@ -192,14 +207,14 @@ export default class Schema {
     this.paths[name] = type;
     this._updateStack(name, type);
 
-    if (nested) this.add(obj, `${name}.`);
+    if (nested) this.add(obj as SchemaDefinition, `${name}.`);
   }
 
   /**
    * Updates cache stacks.
    *
    */
-  private _updateStack(name: string, type: SchemaType) {
+  private _updateStack(name: string, type: SchemaType): void {
     const { stacks } = this;
 
     stacks.getter.push(data => {
@@ -262,7 +277,7 @@ export default class Schema {
    * @param {String} type Hook type. One of `save` or `remove`.
    * @param {Function} fn
    */
-  pre(type: HookType, fn) {
+  pre(type: HookType, fn: () => void): void {
     checkHookType(type);
     if (typeof fn !== 'function') throw new TypeError('Hook must be a function!');
 
@@ -285,10 +300,8 @@ export default class Schema {
   /**
    * Adds a instance method.
    *
-   * @param {String} name
-   * @param {Function} fn
    */
-  method(name: string, fn) {
+  method(name: string, fn: DocumentMethod): void {
     if (!name) throw new TypeError('Method name is required!');
 
     if (typeof fn !== 'function') {
@@ -301,10 +314,8 @@ export default class Schema {
   /**
    * Adds a static method.
    *
-   * @param {String} name
-   * @param {Function} fn
    */
-  static(name: string, fn) {
+  static(name: string, fn: ModelMethod): void {
     if (!name) throw new TypeError('Method name is required!');
 
     if (typeof fn !== 'function') {
@@ -318,7 +329,7 @@ export default class Schema {
    * Apply getters.
    *
    */
-  private _applyGetters(data: unknown): void {
+  _applyGetters(data: unknown): void {
     const stack = this.stacks.getter;
 
     for (let i = 0, len = stack.length; i < len; i++) {
@@ -330,7 +341,7 @@ export default class Schema {
    * Apply setters.
    *
    */
-  private _applySetters(data: unknown): void {
+  _applySetters(data: unknown): void {
     const stack = this.stacks.setter;
 
     for (let i = 0, len = stack.length; i < len; i++) {
@@ -404,7 +415,7 @@ export default class Schema {
    * @return {queryParseCallback[]}
    * @private
    */
-  _parseSort(sorts, prefix = '', stack = []) {
+  _parseSort(sorts: Any, prefix = '', stack = []) {
     const { paths } = this;
     const keys = Object.keys(sorts);
 

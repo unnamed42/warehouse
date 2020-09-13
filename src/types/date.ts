@@ -25,7 +25,7 @@ export default class SchemaTypeDate extends SchemaType {
    * Validates data.
    *
    */
-  validate(value_: ValueType, data?: unknown): Date | null {
+  validate(value_: ValueType, data?: unknown): Date | null | undefined {
     const value = super.validate(value_, data);
 
     if (value != null && (!(value instanceof Date) || isNaN(value.getTime()))) {

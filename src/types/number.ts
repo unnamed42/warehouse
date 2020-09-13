@@ -24,7 +24,7 @@ export default class SchemaTypeNumber extends SchemaType {
    * Validates a number.
    *
    */
-  validate(value_: ValueType, data?: unknown): number {
+  validate(value_: ValueType, data?: unknown): number | undefined {
     const value = super.validate(value_, data);
 
     if (value !== undefined && (typeof value !== 'number' || isNaN(value))) {
