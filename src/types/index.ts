@@ -31,6 +31,10 @@ const types = {
 type ExportedTypes = typeof types & Record<string, typeof _Mixed>;
 export const Types = types as ExportedTypes;
 
-export type ValueType =
-  number | string | boolean | Date | Buffer | Any | null |
-  ValueType[];
+type LeafValueTypes =
+  number | string | boolean | Date | Buffer | null;
+
+export type ValueType = LeafValueTypes | ValueObject | ValueArray;
+
+export interface ValueObject extends Dict<ValueType> {}
+export interface ValueArray extends Array<ValueType> {}

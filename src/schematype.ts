@@ -1,6 +1,6 @@
 import { setProp } from './util';
 import ValidationError from './error/validation';
-import { ValueType } from './types';
+import type { ValueType, ValueObject } from './types';
 
 export interface SchemaOptions {
   required?: boolean;
@@ -103,7 +103,7 @@ export default class SchemaType {
    * Validates data. This function is used by setters.
    *
    */
-  validate(value: ValueType | undefined, _data?: unknown): ValueType | undefined {
+  validate(value?: ValueType, _data?: unknown): ValueType | undefined {
     if (this.options.required && value == null) {
       throw new ValidationError(`\`${this.name}\` is required!`);
     }
@@ -245,7 +245,7 @@ export default class SchemaType {
    * Renames a field.
    *
    */
-  u$rename(value: ValueType | undefined, update: ValueType, data: Any): void {
+  u$rename(value: ValueType | undefined, update: ValueType, data: ValueObject): void {
     if (value !== undefined) setProp(data, update as string, value);
     return undefined;
   }

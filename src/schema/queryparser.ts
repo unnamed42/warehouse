@@ -1,12 +1,12 @@
 import SchemaType from '../schematype';
-import { ValueType } from '../types';
+import { ValueType, ValueObject } from '../types';
 import { isPlainObject } from 'is-plain-object';
 import { getProp } from '../util';
 
 import type { QueryFilterCallback } from './types';
 
-export class QueryParser<Query extends Any = Any> {
-  constructor(private paths: Record<string, SchemaType>) {}
+export class QueryParser<Query extends ValueType = ValueType> {
+  constructor(private paths: Dict<SchemaType>) {}
 
   /**
    *
@@ -14,10 +14,10 @@ export class QueryParser<Query extends Any = Any> {
    * @param {*} query
    * @return {queryFilterCallback}
    */
-  queryStackNormal(name: string, query: Query): QueryFilterCallback<ValueType> {
+  queryStackNormal(name: string, query: Query): QueryFilterCallback<ValueObject> {
     const path = this.paths[name] || new SchemaType(name);
 
-    return data => path.match(getProp(data, name) as ValueType, query, data);
+    return data => path.match(getProp(data, name), query, data);
   }
 
   /**

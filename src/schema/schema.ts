@@ -1,4 +1,4 @@
-import { Types, ValueType } from '@/types';
+import { Types, ValueType, ValueObject } from '@/types';
 import SchemaTypeVirtual from '@/types/virtual';
 import { delProp, getProp, setProp } from '@/util';
 import PopulationError from '@/error/population';
@@ -15,7 +15,7 @@ import type {
   QueryParseCallback
 } from './types';
 
-type Visitor = (data: unknown) => void;
+type Visitor = (data: ValueObject) => void;
 type Getter = (this: ValueType) => ValueType;
 
 interface SchemaStacks {
@@ -160,7 +160,7 @@ export default class Schema {
     const { stacks } = this;
 
     stacks.getter.push(data => {
-      const value = getProp(data, name) as ValueType;
+      const value = getProp(data, name);
       const result = type.cast(value, data);
 
       if (result !== undefined) {
@@ -169,7 +169,7 @@ export default class Schema {
     });
 
     stacks.setter.push(data => {
-      const value = getProp(data, name) as ValueType;
+      const value = getProp(data, name);
       const result = type.validate(value, data);
 
       if (result !== undefined) {
@@ -180,7 +180,7 @@ export default class Schema {
     });
 
     stacks.import.push(data => {
-      const value = getProp(data, name) as ValueType;
+      const value = getProp(data, name);
       const result = type.parse(value, data);
 
       if (result !== undefined) {
@@ -189,7 +189,7 @@ export default class Schema {
     });
 
     stacks.export.push(data => {
-      const value = getProp(data, name) as ValueType;
+      const value = getProp(data, name);
       const result = type.value(value, data);
 
       if (result !== undefined) {

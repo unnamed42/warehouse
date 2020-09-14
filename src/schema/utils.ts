@@ -12,10 +12,10 @@ import type {
 const builtins = ['String', 'Number', 'Boolean', 'Array', 'Object', 'Date', 'Buffer'] as const;
 const builtinTypes = new Set(builtins);
 
-const isBuiltinTypes = (type: BuiltinConstructors | typeof SchemaType): type is BuiltinConstructors => {
-  const typeName = type.name as (typeof builtins)[number];
-  return builtinTypes.has(typeName);
-};
+type BuiltinNames = (typeof builtins)[number];
+
+const isBuiltinTypes = (type: BuiltinConstructors | typeof SchemaType): type is BuiltinConstructors =>
+  builtinTypes.has(type.name as BuiltinNames);
 
 export const getSchemaType = (
   name: string,

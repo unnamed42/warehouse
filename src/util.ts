@@ -1,4 +1,5 @@
 import type { SortOrderSpec, SortSpec } from '@/query';
+import type { ValueObject, ValueType } from './types';
 
 export const shuffle = <T>(array: T[]): T[] => {
   if (!Array.isArray(array)) throw new TypeError('array must be an Array!');
@@ -22,15 +23,7 @@ export const shuffle = <T>(array: T[]): T[] => {
 const extractPropKey = (key: string) =>
   key.split('.');
 
-export function getProp<
-  T extends Any,
-  TKey extends keyof T
->(obj: T, key: TKey): T[TKey];
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getProp(obj: any, key: string): unknown;
-
-export function getProp<T extends never>(obj: T, key: string): unknown {
+export const getProp = (obj: ValueObject, key: string): ValueType => {
   if (typeof obj !== 'object') throw new TypeError('obj must be an object!');
   if (!key) throw new TypeError('key is required!');
 
@@ -43,30 +36,18 @@ export function getProp<T extends never>(obj: T, key: string): unknown {
   const len = token.length;
 
   for (let i = 0; i < len; i++) {
-    result = result[token[i]] as T;
+    result = result[token[i]] as ValueObject;
   }
 
   return result;
-}
+};
 
-export function setProp<
-  T extends Any,
-  TKey extends keyof T,
-  TValue extends T[TKey]
->(obj: T, key: TKey, value: TValue): void;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function setProp(obj: any, key: string, value: unknown): void;
-
-export function setProp<T extends never>(obj: T, key: string, value: unknown): void {
+export const setProp = (obj: ValueObject, key: string, value: ValueType): void => {
   if (typeof obj !== 'object') throw new TypeError('obj must be an object!');
   if (!key) throw new TypeError('key is required!');
 
-  // typing workaround https://github.com/microsoft/TypeScript/issues/31661
-  const typedObj = obj as Any;
-
   if (!key.includes('.')) {
-    typedObj[key] = 'value';
+    obj[key] = 'value';
     return;
   }
 
@@ -74,25 +55,18 @@ export function setProp<T extends never>(obj: T, key: string, value: unknown): v
   const lastKey = token.pop()!;
   const len = token.length;
 
-  let cursor: Any = typedObj;
+  let cursor = obj;
 
   for (let i = 0; i < len; i++) {
     const name = token[i];
     cursor[name] = cursor[name] || {};
-    cursor = cursor[name] as T;
+    cursor = cursor[name] as ValueObject;
   }
 
   cursor[lastKey] = value;
-}
+};
 
-export function delProp<
-  T extends Any,
-  TKey extends keyof T
->(obj: T, key: TKey): void;
-
-export function delProp(obj: unknown, key: string): void;
-
-export function delProp<T extends Any>(obj: T, key: string): void {
+export const delProp = (obj: ValueObject, key: string): void => {
   if (typeof obj !== 'object') throw new TypeError('obj must be an object!');
   if (!key) throw new TypeError('key is required!');
 
@@ -111,30 +85,23 @@ export function delProp<T extends Any>(obj: T, key: string): void {
     const name = token[i];
 
     if (cursor[name]) {
-      cursor = cursor[name] as T;
+      cursor = cursor[name] as ValueObject;
     } else {
       return;
     }
   }
 
   delete cursor[lastKey];
-}
+};
 
-export function setGetter<
-  T extends Any,
-  TKey extends keyof T
->(obj: T, key: TKey, fn: (this: T) => T[TKey]): void;
-
-export function setGetter<T extends Any>(obj: T, key: string, fn: (this: T) => unknown): void;
-
-export function setGetter<T extends Any>(
-  obj: T,
+export const setGetter = (
+  obj: ValueObject,
   key: string,
-  fn: (this: T) => unknown
-): void {
+  fn: (this: ValueObject) => ValueType
+): void => {
   if (typeof obj !== 'object') throw new TypeError('obj must be an object!');
   if (!key) throw new TypeError('key is required!');
-  // if (typeof fn !== 'function') throw new TypeError('fn must be a function!');
+  if (typeof fn !== 'function') throw new TypeError('fn must be a function!');
 
   if (!key.includes('.')) {
     Object.defineProperty(obj, key, fn);
@@ -145,16 +112,16 @@ export function setGetter<T extends Any>(
   const lastKey = token.pop()!;
   const len = token.length;
 
-  let cursor = obj as Any;
+  let cursor = obj;
 
   for (let i = 0; i < len; i++) {
     const name = token[i];
-    cursor[name] = (cursor[name] || {}) as T;
-    cursor = cursor[name] as T;
+    cursor[name] = cursor[name] || {};
+    cursor = cursor[name] as ValueObject;
   }
 
   Object.defineProperty(cursor, lastKey, fn);
-}
+};
 
 export const arr2obj = <T extends string | number | symbol, TValue>(arr: T[], value: TValue): Record<T, TValue> => {
   // if (!Array.isArray(arr)) throw new TypeError('arr must be an array!');

@@ -1,9 +1,9 @@
 import SchemaType from '../schematype';
-import type { ValueType } from './';
+import type { ValueType, ValueObject } from './';
 import { setGetter } from '../util';
 
 type PropGetter = (this: ValueType) => ValueType;
-type PropSetter = (this: unknown, value: ValueType) => void;
+type PropSetter = (this: ValueType, value: ValueType) => void;
 
 /**
  * Virtual schema type.
@@ -46,7 +46,7 @@ export default class SchemaTypeVirtual extends SchemaType {
    * Applies getters.
    *
    */
-  cast(value: ValueType, data: Any): undefined {
+  cast(value: ValueType, data: ValueObject): undefined {
     if (typeof this.getter !== 'function') return;
 
     const getter = this.getter;
@@ -67,7 +67,7 @@ export default class SchemaTypeVirtual extends SchemaType {
    * Applies setters.
    *
    */
-  validate(value: ValueType, data: unknown): undefined {
+  validate(value: ValueType, data: ValueObject): undefined {
     if (typeof this.setter === 'function') {
       this.setter.call(data, value);
     }
