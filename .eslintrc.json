@@ -38,6 +38,8 @@
     "@typescript-eslint/no-useless-constructor": ["error"],
     "no-extra-parens": "off",
     "@typescript-eslint/no-extra-parens": ["error"],
+    "no-use-before-define": "off",
+    "@typescript-eslint/no-use-before-define": ["error", { "typedefs": false }],
     "node/no-unsupported-features/es-syntax": ["error", { "ignores": ["modules"] }],
     "node/no-missing-import": "off",
     "@typescript-eslint/no-non-null-assertion": "off",

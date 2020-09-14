@@ -3,16 +3,26 @@ import Model from './model';
 import Schema from './schema';
 import { parseArgs, shuffle } from './util';
 
+import type { ValueType } from './types';
+
 type IterateFn<T, TResult = void> =
   (item: T, index?: number) => TResult;
 
 type ReduceFn<T> =
   (prev: T, item: T, index?: number) => T;
 
-export default class Query<T> {
+export type SortOrderSpec =
+  1 | -1 | 'asc' | 'ascending' | 'desc' | 'descending';
 
-  _model!: Model;
-  _schema!: Schema;
+export type SortSpec = SortOrderSpec | _SortDict;
+
+// resolves 'type circularly references itself'
+interface _SortDict extends Dict<SortSpec> {}
+
+export default class Query<T extends ValueType> {
+
+  public _model!: Model;
+  public _schema!: Schema;
 
   private readonly data: T[];
   private readonly length: number;
@@ -196,7 +206,11 @@ export default class Query<T> {
    * returned in reversed order.
    *
    */
-  sort(orderBy: string | Any, order: string | number): Query<T> {
+  sort(orderBy: string, order: SortOrderSpec): Query<T>;
+  sort(orderBy: string): Query<T>;
+  sort(orderBy: Dict<SortSpec>): Query<T>;
+
+  sort(orderBy: string | Dict<SortSpec>, order?: SortOrderSpec): Query<T> {
     const sort = parseArgs(orderBy, order);
     const fn = this._schema._execSort(sort);
 

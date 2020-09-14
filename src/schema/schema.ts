@@ -1,56 +1,19 @@
-import Bluebird from 'bluebird';
-import type Document from '@/document';
-import type Model from '@/model';
 import { Types, ValueType } from '@/types';
 import SchemaTypeVirtual from '@/types/virtual';
 import { delProp, getProp, setProp } from '@/util';
 import PopulationError from '@/error/population';
-import SchemaType, { SchemaOptions } from '@/schematype';
+import SchemaType from '@/schematype';
 import { QueryParser } from './queryparser';
 import { UpdateParser } from './updateparser';
+import { getSchemaType, hookWrapper, execSortStack, sortStack } from './utils';
 
-type BuiltinConstructors =
-  typeof String | typeof Number | typeof Boolean | typeof Array |
-  typeof Object | typeof Date | typeof Buffer;
-
-type WrappedBuiltinConstructors =
-  { type: BuiltinConstructors; };
-
-export type SchemaTypeDefinition =
-  { type: typeof SchemaType } & SchemaOptions;
-
-export type SchemaBuiltinsDefinition =
-  BuiltinConstructors | WrappedBuiltinConstructors;
-
-export type SchemaDefinitionItem =
-  SchemaTypeDefinition | SchemaBuiltinsDefinition | (SchemaTypeDefinition | SchemaBuiltinsDefinition)[];
-
-export type SchemaDefinition =
-  Record<string, SchemaDefinitionItem>;
-
-// type SchemaConstructedTypes =
-//   InstanceType<BuiltinConstructors> | InstanceType<ValueOf<typeof Types>>;
-
-const builtins = ['String', 'Number', 'Boolean', 'Array', 'Object', 'Date', 'Buffer'] as const;
-const builtinTypes = new Set(builtins);
-
-const isBuiltinTypes = (type: BuiltinConstructors | typeof SchemaType): type is BuiltinConstructors => {
-  const typeName = type.name as (typeof builtins)[number];
-  return builtinTypes.has(typeName);
-};
-
-const getSchemaType = (
-  name: string,
-  options: SchemaTypeDefinition | SchemaBuiltinsDefinition
-): SchemaType => {
-  const Type = 'type' in options ? options.type : options;
-
-  if (isBuiltinTypes(Type)) {
-    return new Types[Type.name](name, options as SchemaOptions);
-  }
-
-  return new Type(name, options as SchemaOptions);
-};
+import type Document from '@/document';
+import type Model from '@/model';
+import type { SortSpec } from '@/query';
+import type {
+  SchemaDefinition, SchemaDefinitionItem,
+  QueryParseCallback
+} from './types';
 
 type Visitor = (data: unknown) => void;
 type Getter = (this: ValueType) => ValueType;
@@ -69,27 +32,6 @@ const checkHookType = (type: string) => {
     throw new TypeError('Hook type must be `save` or `remove`!');
   }
 };
-
-type Resolvable<T> = T | PromiseLike<T>;
-
-type Fn0<R> = () => Resolvable<R>;
-type Fn1<T, R> = (arg: T) => Resolvable<R>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Fn2<T, R> = (arg: T, callback: (err: any, result?: R) => void) => void;
-
-function hookWrapper<R>(fn: Fn0<R>): () => Bluebird<R>;
-function hookWrapper<T, R>(fn: Fn1<T, R>): (arg: T) => Bluebird<R>;
-function hookWrapper<T, R>(fn: Fn2<T, R>): (arg: T) => Bluebird<R>;
-
-function hookWrapper<T, R>(
-  fn: Fn0<R> | Fn1<T, R> | Fn2<T, R>
-): (() => Bluebird<R>) | ((arg: T) => Bluebird<R>) {
-  if (fn.length > 1) {
-    return Bluebird.promisify(fn as Fn2<T, R>);
-  }
-
-  return Bluebird.method(fn as Fn0<R> | Fn1<T, R>);
-}
 
 type DocumentMethod = (this: Document) => void;
 type ModelMethod = (this: Model) => void;
@@ -349,39 +291,7 @@ export default class Schema {
     }
   }
 
-  /**
-   * Parses database.
-   *
-   * @param {Object} data
-   * @return {Object}
-   * @private
-   */
-  private _parseDatabase(data: unknown): unknown {
-    const stack = this.stacks.import;
 
-    for (let i = 0, len = stack.length; i < len; i++) {
-      stack[i](data);
-    }
-
-    return data;
-  }
-
-  /**
-   * Exports database.
-   *
-   * @param {Object} data
-   * @return {Object}
-   * @private
-   */
-  private _exportDatabase(data: unknown): unknown {
-    const stack = this.stacks.export;
-
-    for (let i = 0, len = stack.length; i < len; i++) {
-      stack[i](data);
-    }
-
-    return data;
-  }
 
   /**
    * Parses updating expressions and returns a stack.
@@ -409,13 +319,8 @@ export default class Schema {
   /**
    * Parses sorting expressions and returns a stack.
    *
-   * @param {Object} sorts
-   * @param {string} [prefix]
-   * @param {queryParseCallback[]} [stack]
-   * @return {queryParseCallback[]}
-   * @private
    */
-  _parseSort(sorts: Any, prefix = '', stack = []) {
+  _parseSort(sorts: Dict<SortSpec>, prefix = '', stack: QueryParseCallback[] = []): QueryParseCallback[] {
     const { paths } = this;
     const keys = Object.keys(sorts);
 
@@ -437,11 +342,8 @@ export default class Schema {
   /**
    * Returns a function for sorting.
    *
-   * @param {Object} sorts
-   * @return {queryParseCallback}
-   * @private
    */
-  _execSort(sorts) {
+  _execSort(sorts: Dict<SortSpec>): QueryParseCallback {
     const stack = this._parseSort(sorts);
     return execSortStack(stack);
   }

@@ -7,7 +7,6 @@ export interface SchemaOptions {
   default?: ValueType | (() => ValueType);
 
   // used in array types
-  // eslint-disable-next-line no-use-before-define
   child?: SchemaType;
   // used in buffer types
   encoding?: BufferEncoding;

@@ -20,7 +20,6 @@ const _writev = typeof fs.writev === 'function'
     for (const buffer of buffers) await handle.write(buffer);
   };
 
-// eslint-disable-next-line no-use-before-define
 async function exportAsync(database: Database, path: fs.PathLike) {
   const handle = await open(path, 'w');
 

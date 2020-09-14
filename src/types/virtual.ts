@@ -3,7 +3,6 @@ import type { ValueType } from './';
 import { setGetter } from '../util';
 
 type PropGetter = (this: ValueType) => ValueType;
-// eslint-disable-next-line no-use-before-define
 type PropSetter = (this: unknown, value: ValueType) => void;
 
 /**

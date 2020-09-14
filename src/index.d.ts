@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-type Any<T = unknown> = Record<string, T>;
+type Dict<T> = Record<string, T>;
+
+type Any = Dict<unknown>;
 
 interface RecursiveImpl<T> {
   [key: string]: T | RecursiveImpl<T>;

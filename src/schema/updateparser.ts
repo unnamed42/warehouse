@@ -17,35 +17,6 @@ const isPlainObject = <T extends Any>(obj: Recursive<T>): obj is T =>
 export type PopulateResult<TModel> =
   (path: string) => TModel;
 
-
-/**
- * @param {Function[]} stack
- */
-const execSortStack = <Fn extends (() => void)>(stack: Fn[]) => {
-  const len = stack.length;
-
-  return (a, b) => {
-    let result;
-
-    for (let i = 0; i < len; i++) {
-      result = stack[i](a, b);
-      if (result) break;
-    }
-
-    return result;
-  };
-};
-
-const sortStack = (path_, key, sort) => {
-  const path = path_ || new SchemaType(key);
-  const descending = sort === 'desc' || sort === -1;
-
-  return (a, b) => {
-    const result = path.compare(getProp(a, key), getProp(b, key));
-    return descending && result ? result * -1 : result;
-  };
-};
-
 export class UpdateParser {
   static updateStackNormal(key, update) {
     return data => { setProp(data, key, update); };

@@ -3,30 +3,7 @@ import { ValueType } from '../types';
 import { isPlainObject } from 'is-plain-object';
 import { getProp } from '../util';
 
-/**
- * @callback queryFilterCallback
- * @param {*} data
- * @return {boolean}
- */
-export type QueryFilterCallback<TData> =
-  (data: TData) => boolean;
-
-/**
- * @callback queryCallback
- * @param {*} data
- * @return {void}
- */
-export type QueryCallback<TData> =
-  (data: TData) => void;
-
-/**
- * @callback queryParseCallback
- * @param {*} a
- * @param {*} b
- * @returns {*}
- */
-export type QueryParseCallback =
-  (a: Any, b: Any) => Any;
+import type { QueryFilterCallback } from './types';
 
 export class QueryParser<Query extends Any = Any> {
   constructor(private paths: Record<string, SchemaType>) {}

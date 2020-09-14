@@ -1,3 +1,5 @@
+import type { SortOrderSpec, SortSpec } from '@/query';
+
 export const shuffle = <T>(array: T[]): T[] => {
   if (!Array.isArray(array)) throw new TypeError('array must be an Array!');
   const $array = array.slice();
@@ -167,31 +169,27 @@ export const arr2obj = <T extends string | number | symbol, TValue>(arr: T[], va
   return obj;
 };
 
-export const reverse = <T>(arr: T[]): T[] =>
-  arr.reverse();
-// exports.reverse = arr => {
-//   if (!Array.isArray(arr)) throw new TypeError('arr must be an array!');
+export const reverse = <T>(arr: T[]): T[] => {
+  if (!Array.isArray(arr)) throw new TypeError('arr must be an array!');
 
-//   const len = arr.length;
+  const len = arr.length;
 
-//   if (!len) return arr;
+  if (!len) return arr;
 
-//   for (let left = 0, right = len - 1; left < right; left++, right--) {
-//     const tmp = arr[left];
-//     arr[left] = arr[right];
-//     arr[right] = tmp;
-//   }
+  for (let left = 0, right = len - 1; left < right; left++, right--) {
+    const tmp = arr[left];
+    arr[left] = arr[right];
+    arr[right] = tmp;
+  }
 
-//   return arr;
-// };
+  return arr;
+};
 
-type ParseArgsType<T> = T extends string ? Record<string, 1 | 0 | -1> : Exclude<T, string>;
-
-function _parseArgs<T>(args: T): ParseArgsType<T> {
-  if (typeof args !== 'string') return args as ParseArgsType<T>;
+const _parseArgs = (args: string | Dict<SortOrderSpec>): Dict<SortSpec> => {
+  if (typeof args !== 'string') return args;
 
   const arr = args.split(' ');
-  const result = {} as Record<string, 1 | 0 | -1>;
+  const result: Dict<1 | -1> = {};
 
   for (let i = 0, len = arr.length; i < len; i++) {
     const key = arr[i];
@@ -210,20 +208,19 @@ function _parseArgs<T>(args: T): ParseArgsType<T> {
     }
   }
 
-  return result as ParseArgsType<T>;
-}
+  return result;
+};
 
-// TODO: better type for `orderBy`
-export function parseArgs(orderBy: string | any, order: string | number): unknown {
-  let result;
+export const parseArgs = (orderBy: string | Dict<SortSpec>, order?: SortOrderSpec): Dict<SortSpec> => {
+  let result: Dict<SortSpec>;
 
   if (order) {
-    result = { [orderBy]: order };
+    result = { [orderBy as string]: order };
   } else if (typeof orderBy === 'string') {
     result = _parseArgs(orderBy);
   } else {
-    result = orderBy as unknown;
+    result = orderBy;
   }
 
   return result;
-}
+};

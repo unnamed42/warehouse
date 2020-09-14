@@ -1,13 +1,8 @@
 type Fn = () => void;
 
 export default class Mutex {
-  private _locked: boolean;
-  private _queue: Array<Fn>;
-
-  constructor() {
-    this._locked = false;
-    this._queue = [];
-  }
+  private _locked = false;
+  private _queue: Array<Fn> = [];
 
   lock(fn: Fn): void {
     if (this._locked) {
