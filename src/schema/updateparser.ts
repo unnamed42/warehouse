@@ -1,13 +1,19 @@
-import SchemaType, {SchemaOptions} from '@/schematype';
-import { Types, ValueType } from '@/types';
-import Bluebird from 'bluebird';
-import { getProp, setProp, delProp } from '@/util';
-import PopulationError from '@/error/population';
+import SchemaType from '@/schematype';
+import { getProp, setProp } from '@/util';
 import { isPlainObject as _plainObj } from 'is-plain-object';
-import { QueryCallback } from './queryparser';
+
+import type Document from '@/document';
+import type { QueryCallback } from './types';
+import type { ValueType } from '@/types';
 
 const isPlainObject = <T extends Any>(obj: Recursive<T>): obj is T =>
   _plainObj(obj);
+
+type UpdateFn =
+  (value: Document, query: ValueType, data: Any) => boolean;
+
+type StackFn =
+  (data: Document) => void;
 
 /**
  * @typedef PopulateResult
@@ -18,12 +24,12 @@ export type PopulateResult<TModel> =
   (path: string) => TModel;
 
 export class UpdateParser {
-  static updateStackNormal(key, update) {
+  static updateStackNormal(key: string, update: Any): StackFn {
     return data => { setProp(data, key, update); };
   }
 
-  static updateStackOperator(path_, ukey, key, update) {
-    const path = path_ || new SchemaType(key);
+  static updateStackOperator(path_: string | null, ukey: string, key: string, update: Any): StackFn {
+    const path = (path_ || new SchemaType(key)) as unknown as Dict<UpdateFn>;
 
     return data => {
       const result = path[ukey](getProp(data, key), update, data);
@@ -31,7 +37,7 @@ export class UpdateParser {
     };
   }
 
-  constructor(private paths: Record<string, unknown>) {}
+  constructor(private paths: Dict<SchemaType>) {}
 
   /**
    * Parses updating expressions and returns a stack.
@@ -40,7 +46,7 @@ export class UpdateParser {
    * @param {queryCallback[]} [stack]
    * @private
    */
-  private parseUpdate(updates: Any, prefix = '', stack: QueryCallback<ValueType>[] = []) {
+  parseUpdate(updates: Any, prefix = '', stack: QueryCallback[] = []): QueryCallback[] {
     const { paths } = this;
     const { updateStackOperator } = UpdateParser;
     const keys = Object.keys(updates);

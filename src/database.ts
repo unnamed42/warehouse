@@ -1,7 +1,7 @@
-import JSONStream from 'JSONStream';
-// @ts-ignore: disable errors about global `Promise` redefinition
-import Promise from 'bluebird';
-// workaround complaints about no default exports of eslint import/default
+// eslint-disable-next-line import/no-unresolved
+import * as JSONStream from 'JSONStream';
+import Bluebird from 'bluebird';
+// workaround complaints about no default exports of rule import/default
 import { default as fs } from 'graceful-fs';
 import * as stream from 'stream';
 import Model from './model';
@@ -9,10 +9,12 @@ import Schema, { SchemaDefinition } from './schema';
 import SchemaType from './schematype';
 import WarehouseError from './error';
 
-import pkg = require('../package.json');
 import type { FileHandle } from 'fs/promises';
+
 const { open } = fs.promises;
-const pipeline = Promise.promisify(stream.pipeline);
+const pipeline = Bluebird.promisify(stream.pipeline);
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pkg = require('../package.json') as { version: string; };
 
 const _writev = typeof fs.writev === 'function'
   ? (handle: FileHandle, buffers: NodeJS.ArrayBufferView[]) => handle.writev(buffers)
@@ -62,7 +64,7 @@ export interface DatabaseMeta {
     version: number;
     warehouse: string;
   };
-  models: Record<string, Model>;
+  models: Dict<Model>;
 }
 
 export interface DatabaseOptions {
@@ -100,7 +102,7 @@ export default class Database {
   readonly Model: typeof Model;
 
   public options: DatabaseOptions;
-  readonly _models: Record<string, Model>;
+  readonly _models: Dict<Model>;
 
   constructor(options: Partial<DatabaseOptions>) {
     this.options = Object.assign({
@@ -178,7 +180,7 @@ export default class Database {
     const { path } = this.options;
 
     if (!path) throw new WarehouseError('options.path is required');
-    return Promise.resolve(exportAsync(this, path)).asCallback(callback);
+    return Bluebird.resolve(exportAsync(this, path)).asCallback(callback);
   }
 
   toJSON(): DatabaseMeta {

@@ -1,5 +1,14 @@
-import SchemaType, { SchemaOptions } from '@/schematype';
-import type { ValueType } from '@/types';
+import type { default as SchemaType, SchemaOptions } from '@/schematype';
+import type { LeafValueTypes, ValueType, ValueObject, SchemaInstance } from '@/types';
+import type Document from '@/document';
+import type SchemaTypeArray from '@/types/array';
+import type SchemaTypeInteger from '@/types/integer';
+import type SchemaTypeNumber from '@/types/number';
+import type SchemaTypeBuffer from '@/types/buffer';
+import type SchemaTypeCUID from '@/types/cuid';
+import type SchemaTypeString from '@/types/string';
+import type SchemaTypeDate from '@/types/date';
+import type SchemaTypeObject from '@/types/object';
 
 export type BuiltinConstructors =
   typeof String | typeof Number | typeof Boolean | typeof Array |
@@ -15,26 +24,42 @@ export type SchemaBuiltinsDefinition =
   BuiltinConstructors | WrappedBuiltinConstructors;
 
 export type SchemaDefinitionItem =
-  SchemaTypeDefinition | SchemaBuiltinsDefinition | (SchemaTypeDefinition | SchemaBuiltinsDefinition)[];
+  Recursive<SchemaTypeDefinition | SchemaBuiltinsDefinition>;
 
 export type SchemaDefinition =
-  Record<string, SchemaDefinitionItem>;
+  Dict<SchemaDefinitionItem>;
 
+export interface QuerySpecial {
+  $where?: (this: ValueObject) => boolean;
+  $and?: QueryDefinition[];
+  $or?: QueryDefinition[];
+  $nor?: QueryDefinition[];
+  $not?: QueryDefinitionObject;
+}
+
+export type QuerySpecialDefinition<T extends keyof QuerySpecial> =
+  Exclude<QuerySpecial[T], undefined>;
+
+export type QueryDefinition =
+  Recursive<LeafValueTypes | QuerySpecial>;
+
+export type QueryDefinitionObject =
+  RecursiveObject<LeafValueTypes | QuerySpecial>;
 
 /**
  * @callback queryFilterCallback
  * @param {*} data
  * @return {boolean}
  */
-export type QueryFilterCallback<TData> =
-  (data: TData) => boolean;
+export type QueryFilterCallback =
+  (data: Document) => boolean;
 
 /**
  * @callback queryCallback
  * @param {*} data
  * @return {void}
  */
-export type QueryCallback<TData> =
+export type QueryCallback<TData = ValueType> =
   (data: TData) => void;
 
 /**
@@ -44,4 +69,21 @@ export type QueryCallback<TData> =
  * @returns {*}
  */
 export type QueryParseCallback =
-  (a: ValueType, b: ValueType) => number;
+  (a: Document, b: Document) => number;
+
+type ResolveSchema<T extends SchemaDefinitionItem> =
+  T extends BuiltinConstructors ? InstanceType<T> :
+  T extends WrappedBuiltinConstructors ? InstanceType<T['type']> :
+  T extends { type: new(...args: unknown[]) => infer SType } ?
+    SType extends SchemaType ? SchemaInstance<SType> : never :
+  ResolveComplexSchema<T>;
+
+type ResolveComplexSchema<T extends SchemaDefinitionItem> =
+  T extends Array<infer U> ? {
+    0: T;
+    1: U extends SchemaDefinitionItem ? ResolveSchema<U>[] : never;
+  }[U extends SchemaDefinitionItem ? 1 : 0] :
+  T extends SchemaDefinition ? ResolvedSchemaDefinition<T> : never;
+
+type ResolvedSchemaDefinition<T extends SchemaDefinition> =
+  { [K in keyof T]: ResolveSchema<T[K]>; }

@@ -4,7 +4,7 @@ import { delProp, getProp, setProp } from '@/util';
 import PopulationError from '@/error/population';
 import SchemaType from '@/schematype';
 import { QueryParser } from './queryparser';
-import { UpdateParser } from './updateparser';
+import { UpdateParser, PopulateResult } from './updateparser';
 import { getSchemaType, hookWrapper, execSortStack, sortStack } from './utils';
 
 import type Document from '@/document';
@@ -12,7 +12,9 @@ import type Model from '@/model';
 import type { SortSpec } from '@/query';
 import type {
   SchemaDefinition, SchemaDefinitionItem,
-  QueryParseCallback
+  QueryParseCallback,
+  QueryFilterCallback,
+  QueryDefinitionObject
 } from './types';
 
 type Visitor = (data: ValueObject) => void;
@@ -25,7 +27,20 @@ interface SchemaStacks {
   export: Visitor[];
 }
 
-type HookType = 'save' | 'remove';
+type HookFn =
+  (data: Document) => void;
+
+interface Hooks {
+  save: HookFn[];
+  remove: HookFn[];
+}
+
+interface HooksProp {
+  pre: Hooks;
+  post: Hooks;
+}
+
+type HookType = keyof Hooks;
 
 const checkHookType = (type: string) => {
   if (type !== 'save' && type !== 'remove') {
@@ -45,16 +60,7 @@ export default class Schema {
   private readonly paths: Record<string, SchemaType>;
   readonly statics: Record<string, ModelMethod>;
   readonly methods: Record<string, DocumentMethod>;
-  private readonly hooks: {
-    pre: {
-      save: Any[];
-      remove: Any[];
-    },
-    post: {
-      save: Any[];
-      remove: Any[];
-    }
-  };
+  readonly hooks: HooksProp;
   private readonly stacks: SchemaStacks;
 
   /**
@@ -307,14 +313,10 @@ export default class Schema {
   /**
    * Returns a function for querying.
    *
-   * @param {Object} query
-   * @return {queryFilterCallback}
-   * @private
    */
-  private _execQuery(query) {
+  _execQuery(query: QueryDefinitionObject): QueryFilterCallback {
     return new QueryParser(this.paths).execQuery(query);
   }
-
 
   /**
    * Parses sorting expressions and returns a stack.
@@ -355,7 +357,7 @@ export default class Schema {
    * @return {PopulateResult[]}
    * @private
    */
-  _parsePopulate(expr) {
+  _parsePopulate(expr: string | Array<string | Any> | Any): PopulateResult<Any>[] {
     const { paths } = this;
     const arr = [];
 

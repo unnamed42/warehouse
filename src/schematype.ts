@@ -5,13 +5,14 @@ import type { ValueType, ValueObject } from './types';
 export interface SchemaOptions {
   required?: boolean;
   default?: ValueType | (() => ValueType);
-
   // used in array types
   child?: SchemaType;
   // used in buffer types
   encoding?: BufferEncoding;
   // used in enum types
   elements?: ValueType[];
+  // reference
+  ref?: string;
 }
 
 // QueryType[] for compatibility of `SchemaArray.match`

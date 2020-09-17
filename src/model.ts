@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import rfdc from 'rfdc';
-import Promise from 'bluebird';
+import Bluebird, { Disposer } from 'bluebird';
 import { parseArgs, getProp, setGetter, shuffle } from './util';
 import Document from './document';
 import Query from './query';
@@ -10,8 +10,28 @@ import WarehouseError from './error';
 import PopulationError from './error/population';
 import Mutex from './mutex';
 import Database from './database';
+import { QueryDefinition } from './schema/types';
 
 const cloneDeep = rfdc();
+
+type Callback = (err: unknown, result: Document) => void;
+type IterateFn = (data: Document | Any, index: number) => void;
+
+const execHooks = (
+  schema: Schema,
+  type: keyof Schema['hooks'],
+  event: keyof Schema['hooks'][typeof type],
+  data: Document
+): Bluebird<Document> => {
+  const hooks = schema.hooks[type][event];
+  if (!hooks.length) return Bluebird.resolve(data);
+
+  return Bluebird.each(hooks, hook => hook(data)).thenReturn(data);
+};
+
+interface FindByIdOptions {
+  lean: boolean;
+}
 
 export default class Model extends EventEmitter {
 
@@ -19,7 +39,7 @@ export default class Model extends EventEmitter {
   private readonly Query: typeof Query;
 
   private readonly name: string;
-  private readonly data: Any;
+  private readonly data: Record<string, Any>;
   private readonly schema: Schema;
   private length: number;
   private readonly _mutex: Mutex;
@@ -55,8 +75,8 @@ export default class Model extends EventEmitter {
     this.schema = schema;
     this.length = 0;
 
-    class _Document extends Document<number> {
-      constructor(data) {
+    class _Document extends Document {
+      constructor(data?: Any) {
         super(data);
 
         // Apply getters
@@ -69,7 +89,7 @@ export default class Model extends EventEmitter {
     _Document.prototype._model = this;
     _Document.prototype._schema = schema;
 
-    class _Query<T> extends Query<T> {}
+    class _Query extends Query {}
 
     this.Query = _Query;
 
@@ -86,10 +106,8 @@ export default class Model extends EventEmitter {
   /**
    * Creates a new document.
    *
-   * @param {object} data
-   * @return {Document}
    */
-  new(data) {
+  new(data?: Any): Document {
     return new this.Document(data);
   }
 
@@ -101,7 +119,11 @@ export default class Model extends EventEmitter {
    *   @param {boolean} [options.lean=false] Returns a plain JavaScript object
    * @return {Document|object}
    */
-  findById(id, options_: { lean?: boolean }): Any | Document | undefined {
+  findById(id: string, options_?: FindByIdOptions): Any | Document | undefined;
+  findById(id: string, options_?: { lean?: true }): Any | undefined;
+  findById(id: string, options_?: { lean?: false }): Document | undefined;
+
+  findById(id: string, options_?: { lean?: boolean }): Any | Document | undefined {
     const raw = this.data[id];
     if (!raw) return;
 
@@ -116,24 +138,19 @@ export default class Model extends EventEmitter {
   /**
    * Checks if the model contains a document with the specified id.
    *
-   * @param {*} id
-   * @return {boolean}
    */
-  has(id): boolean {
+  has(id: string): boolean {
     return Boolean(this.data[id]);
   }
 
   /**
    * Acquires write lock.
    *
-   * @param {*} id
-   * @return {Promise}
-   * @private
    */
-  _acquireWriteLock(id) {
+  _acquireWriteLock(_id?: string): Disposer<void> {
     const mutex = this._mutex;
 
-    return new Promise((resolve, _) => {
+    return new Bluebird((resolve, _) => {
       mutex.lock(resolve);
     }).disposer(() => {
       mutex.unlock();
@@ -147,7 +164,7 @@ export default class Model extends EventEmitter {
    * @return {Promise}
    * @private
    */
-  _insertOne(data_: Document | Any) {
+  _insertOne(data_: Document | Any): Bluebird<Document> {
     const schema = this.schema;
 
     // Apply getters
@@ -156,11 +173,11 @@ export default class Model extends EventEmitter {
 
     // Check ID
     if (!id) {
-      return Promise.reject(new WarehouseError('ID is not defined', WarehouseError.ID_UNDEFINED));
+      return Bluebird.reject(new WarehouseError('ID is not defined', WarehouseError.ID_UNDEFINED));
     }
 
     if (this.has(id)) {
-      return Promise.reject(new WarehouseError('ID `' + id + '` has been used', WarehouseError.ID_EXIST));
+      return Bluebird.reject(new WarehouseError('ID `' + id + '` has been used', WarehouseError.ID_EXIST));
     }
 
     // Apply setters
@@ -185,8 +202,8 @@ export default class Model extends EventEmitter {
    * @param {function} [callback]
    * @return {Promise}
    */
-  insertOne(data, callback) {
-    return Promise.using(this._acquireWriteLock(), () => this._insertOne(data)).asCallback(callback);
+  insertOne(data: Document, callback?: Callback): Bluebird<Document> {
+    return Bluebird.using(this._acquireWriteLock(), () => this._insertOne(data)).asCallback(callback);
   }
 
   /**
@@ -196,9 +213,12 @@ export default class Model extends EventEmitter {
    * @param {function} [callback]
    * @return {Promise}
    */
-  insert(data, callback) {
+  insert(data: Document[], callback: Callback): Bluebird<Document[]>;
+  insert(data: Document, callback: Callback): Bluebird<Document>;
+
+  insert(data: Document | Document[], callback: Callback): Bluebird<Document> | Bluebird<Document[]> {
     if (Array.isArray(data)) {
-      return Promise.mapSeries(data, item => this.insertOne(item)).asCallback(callback);
+      return Bluebird.mapSeries(data, item => this.insertOne(item)).asCallback(callback);
     }
 
     return this.insertOne(data, callback);
@@ -211,12 +231,12 @@ export default class Model extends EventEmitter {
    * @param {function} [callback]
    * @return {Promise}
    */
-  save(data, callback) {
+  save(data: Document, callback: Callback): Bluebird<Document> {
     const id = data._id;
 
     if (!id) return this.insertOne(data, callback);
 
-    return Promise.using(this._acquireWriteLock(), () => {
+    return Bluebird.using(this._acquireWriteLock(), () => {
       if (this.has(id)) {
         return this._replaceById(id, data);
       }
@@ -233,13 +253,13 @@ export default class Model extends EventEmitter {
    * @return {Promise}
    * @private
    */
-  _updateWithStack(id, stack) {
+  _updateWithStack(id: string, stack: Array<(data: Any) => void>): Bluebird<Document> {
     const schema = this.schema;
 
     const data = this.data[id];
 
     if (!data) {
-      return Promise.reject(new WarehouseError('ID `' + id + '` does not exist', WarehouseError.ID_NOT_EXIST));
+      return Bluebird.reject(new WarehouseError('ID `' + id + '` does not exist', WarehouseError.ID_NOT_EXIST));
     }
 
     // Clone data
@@ -275,8 +295,8 @@ export default class Model extends EventEmitter {
    * @param {function} [callback]
    * @return {Promise}
    */
-  updateById(id, update, callback) {
-    return Promise.using(this._acquireWriteLock(), () => {
+  updateById(id: string, update: Any, callback: Callback): Bluebird<Document> {
+    return Bluebird.using(this._acquireWriteLock(), () => {
       const stack = this.schema._parseUpdate(update);
       return this._updateWithStack(id, stack);
     }).asCallback(callback);
@@ -290,7 +310,7 @@ export default class Model extends EventEmitter {
    * @param {function} [callback]
    * @return {Promise}
    */
-  update(query, data, callback) {
+  update(query: QueryDefinition, data: Any, callback: Callback): Bluebird<Document> {
     return this.find(query).update(data, callback);
   }
 
@@ -306,7 +326,7 @@ export default class Model extends EventEmitter {
     const schema = this.schema;
 
     if (!this.has(id)) {
-      return Promise.reject(new WarehouseError('ID `' + id + '` does not exist', WarehouseError.ID_NOT_EXIST));
+      return Bluebird.reject(new WarehouseError('ID `' + id + '` does not exist', WarehouseError.ID_NOT_EXIST));
     }
 
     data_._id = id;
@@ -336,8 +356,8 @@ export default class Model extends EventEmitter {
    * @param {function} [callback]
    * @return {Promise}
    */
-  replaceById(id, data, callback) {
-    return Promise.using(this._acquireWriteLock(), () => this._replaceById(id, data)).asCallback(callback);
+  replaceById(id: string, data: Any, callback: Callback): Bluebird<Document> {
+    return Bluebird.using(this._acquireWriteLock(), () => this._replaceById(id, data)).asCallback(callback);
   }
 
   /**
@@ -348,7 +368,7 @@ export default class Model extends EventEmitter {
    * @param {function} [callback]
    * @return {Promise}
    */
-  replace(query, data, callback) {
+  replace(query: QueryDefinition, data: Any, callback: Callback): Bluebird<Document> {
     return this.find(query).replace(data, callback);
   }
 
@@ -360,13 +380,13 @@ export default class Model extends EventEmitter {
    * @return {Promise}
    * @private
    */
-  _removeById(id) {
+  _removeById(id: string): Bluebird<Document> {
     const schema = this.schema;
 
     const data = this.data[id];
 
     if (!data) {
-      return Promise.reject(new WarehouseError('ID `' + id + '` does not exist', WarehouseError.ID_NOT_EXIST));
+      return Bluebird.reject(new WarehouseError('ID `' + id + '` does not exist', WarehouseError.ID_NOT_EXIST));
     }
 
     // Pre-hooks
@@ -388,7 +408,7 @@ export default class Model extends EventEmitter {
    * @return {Promise}
    */
   removeById(id, callback) {
-    return Promise.using(this._acquireWriteLock(), () => this._removeById(id)).asCallback(callback);
+    return Bluebird.using(this._acquireWriteLock(), () => this._removeById(id)).asCallback(callback);
   }
 
   /**
@@ -405,16 +425,15 @@ export default class Model extends EventEmitter {
   /**
    * Deletes a model.
    */
-  destroy() {
-    this._database._models[this.name] = null;
+  destroy(): void {
+    (this._database._models as Any)[this.name] = null;
   }
 
   /**
    * Returns the number of elements.
    *
-   * @return {number}
    */
-  count() {
+  count(): number {
     return this.length;
   }
 
@@ -424,7 +443,7 @@ export default class Model extends EventEmitter {
    * @param {function} iterator
    * @param {object} [options] See {@link Model#findById}.
    */
-  forEach(iterator, options) {
+  forEach(iterator: IterateFn, options?: FindByIdOptions): void {
     const keys = Object.keys(this.data);
     let num = 0;
 
@@ -440,8 +459,8 @@ export default class Model extends EventEmitter {
    * @param {Object} [options] See {@link Model#findById}.
    * @return {Array}
    */
-  toArray(options) {
-    const result = new Array(this.length);
+  toArray(options?: FindByIdOptions): Array<Document | Any> {
+    const result = new Array<Document | Any>(this.length);
 
     this.forEach((item, i) => {
       result[i] = item;
@@ -900,7 +919,7 @@ export default class Model extends EventEmitter {
    * @param {String|Object} path
    * @return {Query}
    */
-  populate(path) {
+  populate(path): Query<T> {
     if (!path) throw new TypeError('path is required');
 
     const stack = this.schema._parsePopulate(path);
@@ -935,15 +954,13 @@ export default class Model extends EventEmitter {
   /**
    * Exports data.
    *
-   * @return {String}
-   * @private
    */
-  _export() {
+  private _export(): string {
     return JSON.stringify(this.toJSON());
   }
 
-  toJSON() {
-    const result = new Array(this.length);
+  toJSON(): Any[] {
+    const result = new Array<Any>(this.length);
     const { data, schema } = this;
     const keys = Object.keys(data);
     const { length } = keys;
@@ -959,13 +976,6 @@ export default class Model extends EventEmitter {
 }
 
 Model.prototype.get = Model.prototype.findById;
-
-function execHooks(schema, type, event, data) {
-  const hooks = schema.hooks[type][event];
-  if (!hooks.length) return Promise.resolve(data);
-
-  return Promise.each(hooks, hook => hook(data)).thenReturn(data);
-}
 
 Model.prototype.size = Model.prototype.count;
 

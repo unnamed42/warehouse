@@ -30,13 +30,9 @@ export const getSchemaType = (
   return new Type(name, options as SchemaOptions);
 };
 
-
-type Resolvable<T> = T | PromiseLike<T>;
-
 type Fn0<R> = () => Resolvable<R>;
 type Fn1<T, R> = (arg: T) => Resolvable<R>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Fn2<T, R> = (arg: T, callback: (err: any, result?: R) => void) => void;
+type Fn2<T, R> = (arg: T, callback: (err: unknown, result?: R) => void) => void;
 
 export function hookWrapper<R>(fn: Fn0<R>): () => Bluebird<R>;
 export function hookWrapper<T, R>(fn: Fn1<T, R>): (arg: T) => Bluebird<R>;
@@ -74,7 +70,7 @@ export const sortStack = (path_: SchemaType | undefined, key: string, sort: Sort
   const descending = sort === 'desc' || sort === -1;
 
   const callback: QueryParseCallback = (a, b) => {
-    const result = path.compare(getProp(a, key) as ValueType, getProp(b, key) as ValueType);
+    const result = path.compare(getProp(a, key), getProp(b, key));
     return descending && result ? result * -1 : result;
   };
 

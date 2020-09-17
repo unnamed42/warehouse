@@ -1,27 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-type Dict<T> = Record<string, T>;
-
-type Any = Dict<unknown>;
-
-interface RecursiveImpl<T> {
-  [key: string]: T | RecursiveImpl<T>;
+interface Dict<T> {
+  [key: string]: T;
 }
 
-type Recursive<T extends Any> = T | RecursiveImpl<T>;
+interface DictNullable<T> {
+  [key: string]: T | undefined;
+}
+
+type Any = Record<string, unknown>;
+
+type Resolvable<T> = T | PromiseLike<T>;
+
+type Recursive<T, B extends boolean = false> =
+  B extends true ? (T | RecursiveObject<T> | RecursiveArray<T>) : (T | RecursiveObject<T>);
+
+interface RecursiveObject<T, HasArray extends boolean = true> extends Dict<Recursive<T, HasArray>> {}
+
+interface RecursiveArray<T> extends Array<Recursive<T, true>> {}
+
+type Constructor<T> =
+  new(...args: any[]) => T;
 
 type ValueOf<T> = T[keyof T];
 
+type Keyof<T> =
+  T extends any ? keyof T : never;
+
 type AnyFunction =
   (...args: any[]) => any;
-
-declare module 'JSONStream' {
-  // types from module '@types/jsonstream' cannot be attached to JSONStream,
-  // as npm does not allow upper case in package names. The package `JSONStream`
-  // is uploaded before this constraint is put into effect.
-  //
-  // These types are copied from `@types/jsonstream`.
-
-  export declare function parse<T>(pattern: T): NodeJS.ReadWriteStream;
-  export declare function parse<T>(patterns: T[]): NodeJS.ReadWriteStream;
-}

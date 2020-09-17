@@ -1,40 +1,62 @@
-import Promise from 'bluebird';
+import Bluebird from 'bluebird';
 import Model from './model';
 import Schema from './schema';
+import Document from './document';
 import { parseArgs, shuffle } from './util';
 
-import type { ValueType } from './types';
+import type { QueryDefinitionObject } from './schema/types';
 
-type IterateFn<T, TResult = void> =
-  (item: T, index?: number) => TResult;
+type IterateFn<T = Document, TResult = void> =
+  (item: T, index: number) => TResult;
 
-type ReduceFn<T> =
+type FilterFn<T = Document> =
+  IterateFn<T, boolean>;
+
+type ReduceFn<T = Document> =
   (prev: T, item: T, index?: number) => T;
 
 export type SortOrderSpec =
   1 | -1 | 'asc' | 'ascending' | 'desc' | 'descending';
 
-export type SortSpec = SortOrderSpec | _SortDict;
+export type SortSpec = RecursiveObject<SortOrderSpec>;
 
-// resolves 'type circularly references itself'
-interface _SortDict extends Dict<SortSpec> {}
+interface FindOneOptions {
 
-export default class Query<T extends ValueType> {
+  /**
+   * Skips the first elements. default = 0
+   */
+  skip?: number;
+
+  /**
+   * Returns a plain JavaScript object. default = false
+   */
+  lean?: boolean;
+}
+
+interface FindOptions extends FindOneOptions {
+
+  /**
+   * Limits the number of documents returned. default = 0
+   */
+  limit?: number;
+}
+
+const isNotQuery = (lean: boolean | undefined, obj: Query | Any[]): obj is Any[] =>
+  !!lean;
+
+export default class Query {
 
   public _model!: Model;
   public _schema!: Schema;
-
-  private readonly data: T[];
-  private readonly length: number;
 
   /**
    * Query constructor.
    *
    */
-  constructor(data: T[]) {
-    this.data = data;
-    this.length = data.length;
-  }
+  constructor(
+    private readonly data: Document[],
+    private readonly length: number = data.length
+  ) {}
 
   /**
    * Returns the number of elements.
@@ -52,7 +74,7 @@ export default class Query<T extends ValueType> {
    * Iterates over all documents.
    *
    */
-  forEach(iterator: IterateFn<T>): void {
+  forEach(iterator: IterateFn): void {
     const { data, length } = this;
 
     for (let i = 0; i < length; i++) {
@@ -60,7 +82,7 @@ export default class Query<T extends ValueType> {
     }
   }
 
-  each(iterator: IterateFn<T>): void {
+  each(iterator: IterateFn): void {
     this.forEach(iterator);
   }
 
@@ -68,7 +90,7 @@ export default class Query<T extends ValueType> {
    * Returns an array containing all documents.
    *
    */
-  toArray(): T[] {
+  toArray(): Document[] {
     return this.data;
   }
 
@@ -77,7 +99,7 @@ export default class Query<T extends ValueType> {
    * negative number.
    *
    */
-  eq(i: number): T {
+  eq(i: number): Document {
     const index = i < 0 ? this.length + i : i;
     return this.data[index];
   }
@@ -86,7 +108,7 @@ export default class Query<T extends ValueType> {
    * Returns the first document.
    *
    */
-  first(): T {
+  first(): Document {
     return this.eq(0);
   }
 
@@ -94,7 +116,7 @@ export default class Query<T extends ValueType> {
    * Returns the last document.
    *
    */
-  last(): T {
+  last(): Document {
     return this.eq(-1);
   }
 
@@ -102,7 +124,7 @@ export default class Query<T extends ValueType> {
    * Returns the specified range of documents.
    *
    */
-  slice(start?: number, end?: number): Query<T> {
+  slice(start?: number, end?: number): Query {
     return new Query(this.data.slice(start, end));
   }
 
@@ -110,7 +132,7 @@ export default class Query<T extends ValueType> {
    * Limits the number of documents returned.
    *
    */
-  limit(i: number): Query<T> {
+  limit(i: number): Query {
     return this.slice(0, i);
   }
 
@@ -118,7 +140,7 @@ export default class Query<T extends ValueType> {
    * Specifies the number of items to skip.
    *
    */
-  skip(i: number): Query<T> {
+  skip(i: number): Query {
     return this.slice(i);
   }
 
@@ -126,7 +148,7 @@ export default class Query<T extends ValueType> {
    * Returns documents in a reversed order.
    *
    */
-  reverse(): Query<T> {
+  reverse(): Query {
     return new Query(this.data.slice().reverse());
   }
 
@@ -134,30 +156,29 @@ export default class Query<T extends ValueType> {
    * Returns documents in random order.
    *
    */
-  shuffle(): Query<T> {
+  shuffle(): Query {
     return new Query(shuffle(this.data));
   }
 
-  random(): Query<T> {
+  random(): Query {
     return this.shuffle();
   }
 
   /**
    * Finds matching documents.
    *
-   * @param {Object} query
-   * @param {Object} [options]
-   *   @param {Number} [options.limit=0] Limits the number of documents returned.
-   *   @param {Number} [options.skip=0] Skips the first elements.
-   *   @param {Boolean} [options.lean=false] Returns a plain JavaScript object.
    * @return {Query|Array}
    */
-  find(query, options = {}) {
+  find(query: QueryDefinitionObject, options?: FindOptions & { lean?: false; }): Query;
+  find(query: QueryDefinitionObject, options?: FindOptions & { lean?: true; }): Any[];
+  find(query: QueryDefinitionObject, options?: FindOptions): Query | Any[];
+
+  find(query: QueryDefinitionObject, options: FindOptions = {}): Query | Any[] {
     const filter = this._schema._execQuery(query);
     const { data, length } = this;
     const { lean = false } = options;
     let { limit = length, skip } = options;
-    const arr = [];
+    const arr: Array<Document | Any> = [];
 
     for (let i = 0; limit && i < length; i++) {
       const item = data[i];
@@ -172,7 +193,7 @@ export default class Query<T extends ValueType> {
       }
     }
 
-    return lean ? arr : new Query(arr);
+    return lean ? arr as Any[] : new Query(arr as Document[]);
   }
 
   /**
@@ -184,11 +205,16 @@ export default class Query<T extends ValueType> {
    *   @param {Boolean} [options.lean=false] Returns a plain JavaScript object.
    * @return {Document|Object}
    */
-  findOne(query, options = {}) {
+  findOne(query: QueryDefinitionObject, options?: FindOneOptions & { lean?: false; }): Document;
+  findOne(query: QueryDefinitionObject, options?: FindOneOptions & { lean?: true; }): Any;
+  findOne(query: QueryDefinitionObject, options?: FindOneOptions): Document | Any;
+
+  findOne(query: QueryDefinitionObject, options_: FindOneOptions = {}): Document | Any {
+    const options = options_ as FindOptions;
     options.limit = 1;
 
     const result = this.find(query, options);
-    return options.lean ? result[0] : result.data[0];
+    return isNotQuery(options.lean, result) ? result[0] : result.data[0];
   }
 
   /**
@@ -206,11 +232,11 @@ export default class Query<T extends ValueType> {
    * returned in reversed order.
    *
    */
-  sort(orderBy: string, order: SortOrderSpec): Query<T>;
-  sort(orderBy: string): Query<T>;
-  sort(orderBy: Dict<SortSpec>): Query<T>;
+  sort(orderBy: string, order: SortOrderSpec): Query;
+  sort(orderBy: string): Query;
+  sort(orderBy: Dict<SortSpec>): Query;
 
-  sort(orderBy: string | Dict<SortSpec>, order?: SortOrderSpec): Query<T> {
+  sort(orderBy: string | Dict<SortSpec>, order?: SortOrderSpec): Query {
     const sort = parseArgs(orderBy, order);
     const fn = this._schema._execSort(sort);
 
@@ -221,7 +247,7 @@ export default class Query<T extends ValueType> {
    * Creates an array of values by iterating each element in the collection.
    *
    */
-  map<TResult>(iterator: IterateFn<T, TResult>): TResult[] {
+  map<TResult>(iterator: IterateFn<Document, TResult>): TResult[] {
     const { data, length } = this;
     const result = new Array<TResult>(length);
 
@@ -240,7 +266,7 @@ export default class Query<T extends ValueType> {
    * @param {*} [initial] By default, the initial value is the first document.
    * @return {*}
    */
-  reduce(iterator: ReduceFn<T>, initial?: T): T {
+  reduce(iterator: ReduceFn, initial?: Document): Document {
     const { data, length } = this;
     let result, i;
 
@@ -264,7 +290,7 @@ export default class Query<T extends ValueType> {
    * each element in the collection from right to left.
    *
    */
-  reduceRight(iterator: ReduceFn<T>, initial?: T): T {
+  reduceRight(iterator: ReduceFn, initial?: Document): Document {
     const { data, length } = this;
     let result, i;
 
@@ -288,7 +314,7 @@ export default class Query<T extends ValueType> {
    * provided function.
    *
    */
-  filter(iterator: IterateFn<T, boolean>): Query<T> {
+  filter(iterator: FilterFn): Query {
     const { data, length } = this;
     const arr = [];
 
@@ -305,7 +331,7 @@ export default class Query<T extends ValueType> {
    * function.
    *
    */
-  every(iterator: IterateFn<T, boolean>): boolean {
+  every(iterator: FilterFn): boolean {
     const { data, length } = this;
 
     for (let i = 0; i < length; i++) {
@@ -320,7 +346,7 @@ export default class Query<T extends ValueType> {
    * function.
    *
    */
-  some(iterator: IterateFn<T, boolean>): boolean {
+  some(iterator: FilterFn): boolean {
     const { data, length } = this;
 
     for (let i = 0; i < length; i++) {
@@ -341,7 +367,7 @@ export default class Query<T extends ValueType> {
     const model = this._model;
     const stack = this._schema._parseUpdate(data);
 
-    return Promise.mapSeries(this.data, item => model._updateWithStack(item._id, stack)).asCallback(callback);
+    return Bluebird.mapSeries(this.data, item => model._updateWithStack(item._id, stack)).asCallback(callback);
   }
 
   /**
@@ -354,7 +380,7 @@ export default class Query<T extends ValueType> {
   replace(data, callback) {
     const model = this._model;
 
-    return Promise.map(this.data, item => model.replaceById(item._id, data)).asCallback(callback);
+    return Bluebird.map(this.data, item => model.replaceById(item._id, data)).asCallback(callback);
   }
 
   /**
@@ -366,7 +392,7 @@ export default class Query<T extends ValueType> {
   remove(callback) {
     const model = this._model;
 
-    return Promise.mapSeries(this.data, item => model.removeById(item._id)).asCallback(callback);
+    return Bluebird.mapSeries(this.data, item => model.removeById(item._id)).asCallback(callback);
   }
 
   /**

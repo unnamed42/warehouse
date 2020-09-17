@@ -1,40 +1,49 @@
 // prefix underscore to avoid name collisions
-import { default as _Mixed } from '../schematype';
-import { default as _String } from './string';
-import { default as _Number } from './number';
-import { default as _Boolean } from './boolean';
-import { default as _Array } from './array';
-import { default as _Object } from './object';
-import { default as _Date } from './date';
-import { default as _Virtual } from './virtual';
-import { default as _CUID } from './cuid';
-import { default as _Enum } from './enum';
-import { default as _Integer } from './integer';
-import { default as _Buffer } from './buffer';
+import SchemaType from '../schematype';
+import SchemaTypeString from './string';
+import SchemaTypeNumber from './number';
+import SchemaTypeBoolean from './boolean';
+import SchemaTypeArray from './array';
+import SchemaTypeObject from './object';
+import SchemaTypeDate from './date';
+import SchemaTypeVirtual from './virtual';
+import SchemaTypeCUID from './cuid';
+import SchemaTypeEnum from './enum';
+import SchemaTypeInteger from './integer';
+import SchemaTypeBuffer from './buffer';
 
 const types = {
-  Mixed: _Mixed,
-  String: _String,
-  Number: _Number,
-  Boolean: _Boolean,
-  Array: _Array,
-  Object: _Object,
-  Date: _Date,
-  Virtual: _Virtual,
-  CUID: _CUID,
-  Enum: _Enum,
-  Integer: _Integer,
-  Buffer: _Buffer
+  Mixed: SchemaType,
+  String: SchemaTypeString,
+  Number: SchemaTypeNumber,
+  Boolean: SchemaTypeBoolean,
+  Array: SchemaTypeArray,
+  Object: SchemaTypeObject,
+  Date: SchemaTypeDate,
+  Virtual: SchemaTypeVirtual,
+  CUID: SchemaTypeCUID,
+  Enum: SchemaTypeEnum,
+  Integer: SchemaTypeInteger,
+  Buffer: SchemaTypeBuffer
 } as const;
 
 // workaround to fetch constructor by string name
-type ExportedTypes = typeof types & Record<string, typeof _Mixed>;
+type ExportedTypes = typeof types & Dict<typeof SchemaType>;
 export const Types = types as ExportedTypes;
 
-type LeafValueTypes =
+export type SchemaInstance<T extends SchemaType> =
+  T extends SchemaTypeString | SchemaTypeCUID ? string :
+  T extends SchemaTypeInteger | SchemaTypeNumber ? number :
+  T extends SchemaTypeBoolean ? boolean :
+  T extends SchemaTypeDate ? Date :
+  T extends SchemaTypeBuffer ? Buffer :
+  T extends SchemaTypeArray ? ValueType[] :
+  T extends SchemaTypeObject ? ValueObject :
+    ValueType;
+
+export type LeafValueTypes =
   number | string | boolean | Date | Buffer | null;
 
-export type ValueType = LeafValueTypes | ValueObject | ValueArray;
+export type ValueType = Recursive<LeafValueTypes, true>;
 
-export interface ValueObject extends Dict<ValueType> {}
-export interface ValueArray extends Array<ValueType> {}
+export type ValueObject = RecursiveObject<LeafValueTypes, true>;

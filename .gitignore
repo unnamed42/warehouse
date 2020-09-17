@@ -6,3 +6,5 @@ node_modules/
 *.log
 docs/
 coverage/
+# compiled javascript code
+lib/

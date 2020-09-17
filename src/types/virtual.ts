@@ -1,6 +1,6 @@
-import SchemaType from '../schematype';
+import SchemaType from '@/schematype';
 import type { ValueType, ValueObject } from './';
-import { setGetter } from '../util';
+import { setGetter } from '@/util';
 
 type PropGetter = (this: ValueType) => ValueType;
 type PropSetter = (this: ValueType, value: ValueType) => void;
