@@ -1,14 +1,6 @@
 import type { default as SchemaType, SchemaOptions } from '@/schematype';
 import type { LeafValueTypes, ValueType, ValueObject, SchemaInstance } from '@/types';
 import type Document from '@/document';
-import type SchemaTypeArray from '@/types/array';
-import type SchemaTypeInteger from '@/types/integer';
-import type SchemaTypeNumber from '@/types/number';
-import type SchemaTypeBuffer from '@/types/buffer';
-import type SchemaTypeCUID from '@/types/cuid';
-import type SchemaTypeString from '@/types/string';
-import type SchemaTypeDate from '@/types/date';
-import type SchemaTypeObject from '@/types/object';
 
 export type BuiltinConstructors =
   typeof String | typeof Number | typeof Boolean | typeof Array |
